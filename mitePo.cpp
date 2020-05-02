@@ -61,6 +61,7 @@ DA7212 audio;
 Serial pc(USBTX, USBRX);
 InterruptIn sw2(SW2);
 InterruptIn sw3(SW3);
+EventQueue queue(32 * EVENTS_EVENT_SIZE);
 EventQueue queue1(32 * EVENTS_EVENT_SIZE);
 EventQueue queue2(32 * EVENTS_EVENT_SIZE);
 int idC = 0;
@@ -68,6 +69,7 @@ int16_t song[3][48];	// 3 songs to choose
 int16_t waveform[kAudioTxBufferSize];
 DigitalOut green_led(LED2);
 
+Thread t;
 Thread t1;
 Thread t2;
 int state = 0;
@@ -151,7 +153,7 @@ int main(int argc, char* argv[]) {
 	}
 	//
 	green_led = 0;
-
+	t.start(callback(&queue, &EventQueue::dispatch_forever));
 	t1.start(callback(&queue1, &EventQueue::dispatch_forever));
 	t2.start(callback(&queue2, &EventQueue::dispatch_forever));
 	sw2.rise(queue1.event(sw2_rise));
@@ -170,7 +172,7 @@ void gestureModeSelect()
 	TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
 	if (setup_status != kTfLiteOk) {
 		error_reporter->Report("Set up failed\n");
-		return -1;
+		return;
 	}
 	error_reporter->Report("Set up successful...\n");
 	uLCD.cls();
@@ -238,7 +240,7 @@ void gestureSongSelect()
 	TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
 	if (setup_status != kTfLiteOk) {
 		error_reporter->Report("Set up failed\n");
-		return -1;
+		return;
 	}
 	error_reporter->Report("Set up successful...\n");
 	uLCD.cls();
