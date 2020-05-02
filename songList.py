@@ -2,7 +2,7 @@ import numpy as np
 import serial
 import time
 
-waitTime = 0.02
+waitTime = 0.05
 
 # generate the waveform table
 signal1 = "ccggaabsffeeddasggffeedsggffeedsccggaabsffeeddas"

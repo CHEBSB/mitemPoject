@@ -55,16 +55,14 @@ int PredictGesture(float* output) {
 	return this_predict;
 }
 
-uLCD_4DGL uLCD(D1, D0, D2); // serial tx, serial rx, reset pin;
-
 DA7212 audio;
+uLCD_4DGL uLCD(D1, D0, D2); // serial tx, serial rx, reset pin;
 Serial pc(USBTX, USBRX);
 InterruptIn sw2(SW2);
 InterruptIn sw3(SW3);
 EventQueue queue(32 * EVENTS_EVENT_SIZE);
 EventQueue queue1(32 * EVENTS_EVENT_SIZE);
 EventQueue queue2(32 * EVENTS_EVENT_SIZE);
-int idC = 0;
 int16_t song[3][48];	// 3 songs to choose
 int16_t waveform[kAudioTxBufferSize];
 DigitalOut green_led(LED2);
@@ -77,7 +75,8 @@ int songI = 0;	// song index
 int noteI = -1;  // note index
 void sw2_rise();
 void sw3_rise();
-void getGesture();
+void gestureModeSelect();
+void gestureSongSelect();
 void playNote(int);
 void playSong(int, int);
 void PlayMode();
@@ -98,8 +97,7 @@ int main(int argc, char* argv[]) {
 	uLCD.text_height(4);
 	uLCD.printf("\nInitializing...\n");
 	green_led = 1;
-	// set up gestue dNN
-	{	
+	// set up gestue dNN	
 	micro_op_resolver.AddBuiltin(
 		tflite::BuiltinOperator_DEPTHWISE_CONV_2D,
 		tflite::ops::micro::Register_DEPTHWISE_CONV_2D());
@@ -111,9 +109,8 @@ int main(int argc, char* argv[]) {
 		tflite::ops::micro::Register_FULLY_CONNECTED());
 	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_SOFTMAX,
 		tflite::ops::micro::Register_SOFTMAX());
-	 }
-	// load 3 songs
-	{	
+	
+	// load 3 songs	
 	char buffer;
 	for (int j = 0; j < 3; j++)
 		for (int i = 0; i < 48;)
@@ -144,13 +141,13 @@ int main(int argc, char* argv[]) {
 					break;
 				case 's':
 					song[j][i] = song[j][i - 1];
-				default:
 					break;
+				default:
+					song[j][i] = 261;
 				}
 				i++;
 			}
-	}
-	//
+	
 	green_led = 0;
 	t.start(callback(&queue, &EventQueue::dispatch_forever));
 	t1.start(callback(&queue1, &EventQueue::dispatch_forever));
@@ -281,11 +278,11 @@ void gestureSongSelect()
 			case 1:	// slope
 				songI--;
 				if (songI < 0) songI += 3;
-				return;
+				continue;
 			case 2:	// sprint
 				songI++;
 				if (songI > 2) songI -= 3;
-				return;
+				continue;
 			}
 		}
 	}
@@ -352,7 +349,7 @@ void sw2_rise()
 		break;
 	case 4: // confim into song select
 		state = 5;
-		uLCD.reset();
+		uLCD.cls();
 		uLCD.text_width(3);
 		uLCD.text_height(3);
 		uLCD.printf("Song selection menu");
