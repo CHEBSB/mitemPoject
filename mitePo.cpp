@@ -94,9 +94,9 @@ static tflite::MicroOpResolver<5> micro_op_resolver;
 int input_length;
 
 int main(int argc, char* argv[]) {
-	uLCD.text_width(3);
+	uLCD.text_width(2);
 	uLCD.text_height(4);
-	uLCD.printf("\nInitializing...\n");
+	uLCD.printf("\nWaiting\nPC input\n");
 	green_led = 1;
 	// set up gestue dNN	
 	micro_op_resolver.AddBuiltin(
@@ -147,6 +147,7 @@ int main(int argc, char* argv[]) {
 					song[j][i] = 261;
 				}
 				i++;
+				wait(0.19f);
 			}
 	
 	green_led = 0;
@@ -174,8 +175,8 @@ void gestureModeSelect()
 	error_reporter->Report("Set up successful...\n");
 	uLCD.cls();
 	uLCD.text_width(2);
-	uLCD.text_height(2);
-	uLCD.printf("\nMode\nselection\nwaiting\ngesture...\n");
+	uLCD.text_height(3);
+	uLCD.printf("\nMode\nselection\n");
 	while (state == 1) {
 		// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
@@ -240,9 +241,9 @@ void gestureSongSelect()
 	}
 	error_reporter->Report("Set up successful...\n");
 	uLCD.cls();
-	uLCD.text_width(3);
+	uLCD.text_width(2);
 	uLCD.text_height(3);
-	uLCD.printf("\nsong selection menu\n");
+	uLCD.printf("\nsong\nselection\n");
 	while (state == 5) {
 		// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
