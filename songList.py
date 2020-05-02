@@ -10,7 +10,7 @@ signal2 = "geesfddscdefgggdgeesfddsceggcsssdddddefseeeeefgs"
 signal3 = "eaagecdegagdedecdbagageeaagecdegagdedecdbagageas"
 
 # output formatter
-formatter = lambda x: "%.3f" % x
+formatter = lambda x: "%c" % x
 
 # send the waveform table to K66F
 serdev = '/dev/ttyACM0'
@@ -18,13 +18,13 @@ s = serial.Serial(serdev)
 print("Sending signal ...")
 print("It may take about %d seconds ..." % (int(144 * waitTime)))
 for data in signal1:
-  s.write(formatter(data))
+  s.write(bytes(formatter(data), 'UTF-8'))
   time.sleep(waitTime)
 for data in signal2:
-  s.write(formatter(data))
+  s.write(bytes(formatter(data), 'UTF-8'))
   time.sleep(waitTime)
 for data in signal3:
-  s.write(formatter(data))
+  s.write(bytes(formatter(data), 'UTF-8'))
   time.sleep(waitTime)
 s.close()
 print("Signal sended")
