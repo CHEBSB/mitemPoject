@@ -330,14 +330,16 @@ void sw2_rise()
 	switch (state) {
 	case 0:	// while playing song
 		state = 1;
-		void gestureModeSelect();
+		gestureModeSelect();
 		break;
 	case 2: //confim fowa
 		songI = (songI == 2) ? (0) : (songI + 1);
+		noteI = -1;
 		state = 0;
 		break;
 	case 3:	// confim backwa
 		songI = (songI == 0) ? (2) : (songI - 1);
+		noteI = -1;
 		state = 0;
 		break;
 	case 4: // confim into song select
@@ -348,6 +350,7 @@ void sw2_rise()
 		uLCD.printf("Song selection menu");
 		break;
 	case 6:	// confim song selecte
+		noteI = -1;
 		state = 0;
 	}
 }
@@ -359,17 +362,18 @@ void sw3_rise()
 		break;
 	case 2:	
 		state = 1;
-		void gestureModeSelect();
+		gestureModeSelect();
 		break;
 	case 3: 
 		state = 1;
-		void gestureModeSelect();
+		gestureModeSelect();
 		break;
 	case 4:	
 		state = 1;
-		void gestureModeSelect();
+		gestureModeSelect();
 		break;
 	case 6:	// confim song selecte
 		state = 5;
+		gestureSongSelect();
 	}
 }
