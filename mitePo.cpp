@@ -115,7 +115,6 @@ int main(int argc, char* argv[]) {
 	// load 3 songs
 	{	
 	char buffer;
-	audio.spk.pause();
 	for (int j = 0; j < 3; j++)
 		for (int i = 0; i < 48;)
 			if (pc.readable()) {
@@ -328,7 +327,7 @@ void PlayMode()
 			playSong(j, noteI + 1);
 
 			j++;
-			if (j > 2)	j -= 3;
+			if (j == 3)	j = 0;
 			songI = j;
 		}
 	}

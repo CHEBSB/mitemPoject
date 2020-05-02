@@ -10,7 +10,7 @@ signal2 = "geesfddscdefgggdgeesfddsceggcsssdddddefseeeeefgs"
 signal3 = "eaagecdegagdedecdbagageeaagecdegagdedecdbagageas"
 
 # output formatter
-formatter = lambda x: "%c" % x
+formatter = lambda x: "%c\r\n" % x
 
 # send the waveform table to K66F
 serdev = '/dev/ttyACM0'
