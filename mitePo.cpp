@@ -14,6 +14,7 @@
 #include "tensorflow/lite/version.h"
 #define bufferLength (32)
 #define signalLength (1024)
+#define songlength 13
 
 int PredictGesture(float* output) {
 	// How many times the most recent gesture has been matched in a row
@@ -63,7 +64,7 @@ InterruptIn sw3(SW3);
 EventQueue queue(32 * EVENTS_EVENT_SIZE);
 EventQueue queue1(32 * EVENTS_EVENT_SIZE);
 EventQueue queue2(32 * EVENTS_EVENT_SIZE);
-int16_t song[3][48];	// 3 songs to choose
+int16_t song[3][songlength];	// 3 songs to choose
 int16_t waveform[kAudioTxBufferSize];
 DigitalOut green_led(LED2);
 
@@ -93,7 +94,7 @@ static tflite::MicroOpResolver<5> micro_op_resolver;
 int input_length;
 
 int main(int argc, char* argv[]) {
-	uLCD.text_width(4);
+	uLCD.text_width(3);
 	uLCD.text_height(4);
 	uLCD.printf("\nInitializing...\n");
 	green_led = 1;
@@ -113,7 +114,7 @@ int main(int argc, char* argv[]) {
 	// load 3 songs	
 	char buffer;
 	for (int j = 0; j < 3; j++)
-		for (int i = 0; i < 48;)
+		for (int i = 0; i < songlength;)
 			if (pc.readable()) {
 				buffer = pc.getc();
 				switch (buffer)
@@ -172,9 +173,9 @@ void gestureModeSelect()
 	}
 	error_reporter->Report("Set up successful...\n");
 	uLCD.cls();
-	uLCD.text_width(3);
-	uLCD.text_height(3);
-	uLCD.printf("\nMode selection menu\n");
+	uLCD.text_width(2);
+	uLCD.text_height(2);
+	uLCD.printf("\nMode\nselection\nwaiting\ngesture...\n");
 	while (state == 1) {
 		// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
@@ -197,29 +198,28 @@ void gestureModeSelect()
 		should_clear_buffer = gesture_index < label_num;
 		// Produce an output
 		if (gesture_index < label_num && state == 1) {
-			error_reporter->Report(config.output_message[gesture_index]);
 			switch (gesture_index)
 			{
 			case 0:	// ring
 				state = 4;
 				uLCD.cls();
-				uLCD.text_width(3);
+				uLCD.text_width(2);
 				uLCD.text_height(3);
-				uLCD.printf("\nGo to song selection?\n");
+				uLCD.printf("\nGo to\nsong selection?\n");
 				return;
 			case 1:	// slope
 				state = 3;
 				uLCD.cls();
-				uLCD.text_width(3);
+				uLCD.text_width(2);
 				uLCD.text_height(3);
-				uLCD.printf("\nGo to Next song?\n");
+				uLCD.printf("\nGo to\nNext song?\n");
 				return;
 			case 2:	// sprint
 				state = 2;
 				uLCD.cls();
-				uLCD.text_width(3);
+				uLCD.text_width(2);
 				uLCD.text_height(3);
-				uLCD.printf("\nGo to Last song?\n");
+				uLCD.printf("\nGo to\nLast song?\n");
 				return;
 			}
 		}
@@ -271,7 +271,7 @@ void gestureSongSelect()
 			case 0:	// ring
 				state = 6;
 				uLCD.cls();
-				uLCD.text_width(3);
+				uLCD.text_width(2);
 				uLCD.text_height(3);
 				uLCD.printf("\nGo to Song.%d?\n", songI);
 				return;
@@ -302,13 +302,13 @@ void playNote(int freq)
 void playSong(int j, int sp = 0)
 {
 	int i;
-	for (i = sp; state == 0 && i < 42; i++)
+	for (i = sp; state == 0 && i < songlength; i++)
 	{	
 		noteI = i;
 		queue.call(playNote, song[j][i]);
 		wait(1.0);
 	}
-	if (i == 42)	noteI = -1;
+	if (i == songlength)	noteI = -1;
 }
 void PlayMode() 
 {
@@ -316,9 +316,9 @@ void PlayMode()
 	{
 		if (state == 0) {
 			uLCD.cls();
-			uLCD.text_width(3); 
+			uLCD.text_width(2); 
 			uLCD.text_height(3);
-			uLCD.printf("\nCurrent Playing:\nSong %d\n", songI); 
+			uLCD.printf("\nCurrent\nPlaying:\nSong %d\n", songI); 
 			
 			j = songI;
 			playSong(j, noteI + 1);
@@ -350,9 +350,9 @@ void sw2_rise()
 	case 4: // confim into song select
 		state = 5;
 		uLCD.cls();
-		uLCD.text_width(3);
-		uLCD.text_height(3);
-		uLCD.printf("Song selection menu");
+		uLCD.text_width(2);
+		uLCD.text_height(2);
+		uLCD.printf("\nSong\nselection\nmenu\n");
 		break;
 	case 6:	// confim song selecte
 		noteI = -1;

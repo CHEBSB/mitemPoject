@@ -2,13 +2,14 @@ import numpy as np
 import serial
 import time
 
-waitTime = 0.05
+waitTime = 0.2
 
 # generate the waveform table
-signal1 = "ccggaabsffeeddasggffeedsggffeedsccggaabsffeeddas"
-signal2 = "geesfddscdefgggdgeesfddsceggcsssdddddefseeeeefgs"
-signal3 = "eaagecdegagdedecdbagageeaagecdegagdedecdbagageas"
-
+signal1 = "cdefgabagfedc"
+#signal2 = "geesfddscdefgggdgeesfddsceggcsssdddddefseeeeefgs"
+signal2 = "cceeggaacceeg"
+#signal3 = "eaagecdegagdedecdbagageeaagecdegagdedecdbagageas"
+signal3 = "abcabcabcabca"
 # output formatter
 formatter = lambda x: "%c\r\n" % x
 
@@ -16,7 +17,7 @@ formatter = lambda x: "%c\r\n" % x
 serdev = '/dev/ttyACM0'
 s = serial.Serial(serdev)
 print("Sending signal ...")
-print("It may take about %d seconds ..." % (int(144 * waitTime)))
+print("It may take about %d seconds ..." % (int(len(signal1) * 3 * waitTime)))
 for data in signal1:
   s.write(bytes(formatter(data), 'UTF-8'))
   time.sleep(waitTime)
