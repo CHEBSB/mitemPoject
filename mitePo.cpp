@@ -2,8 +2,58 @@
 #include <cmath>
 #include "DA7212.h"
 #include "uLCD_4DGL.h"
+#include "accelerometer_handler.h"
+#include "config.h"
+#include "magic_wand_model_data.h"
+#include "tensorflow/lite/c/common.h"
+#include "tensorflow/lite/micro/kernels/micro_ops.h"
+#include "tensorflow/lite/micro/micro_error_reporter.h"
+#include "tensorflow/lite/micro/micro_interpreter.h"
+#include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
+#include "tensorflow/lite/schema/schema_generated.h"
+#include "tensorflow/lite/version.h"
 #define bufferLength (32)
 #define signalLength (1024)
+
+int PredictGesture(float* output) {
+	// How many times the most recent gesture has been matched in a row
+	static int continuous_count = 0;
+	// The result of the last prediction
+	static int last_predict = -1;
+
+	// Find whichever output has a probability > 0.8 (they sum to 1)
+	int this_predict = -1;
+	for (int i = 0; i < label_num; i++) {
+		if (output[i] > 0.8) this_predict = i;
+	}
+
+	// No gesture was detected above the threshold
+	if (this_predict == -1) {
+		continuous_count = 0;
+		last_predict = label_num;
+		return label_num;
+	}
+
+	if (last_predict == this_predict) {
+		continuous_count += 1;
+	}
+	else {
+		continuous_count = 0;
+	}
+	last_predict = this_predict;
+
+	// If we haven't yet had enough consecutive matches for this gesture,
+	// report a negative result
+	if (continuous_count < config.consecutiveInferenceThresholds[this_predict]) {
+		return label_num;
+	}
+	// Otherwise, we've seen a positive result, so clear all our variables
+	// and report it
+	continuous_count = 0;
+	last_predict = -1;
+
+	return this_predict;
+}
 
 uLCD_4DGL uLCD(D1, D0, D2); // serial tx, serial rx, reset pin;
 
@@ -28,25 +78,22 @@ void getGesture();
 void playNote(int);
 void playSong(int, int);
 void PlayMode();
+
+constexpr int kTensorArenaSize = 60 * 1024;
+uint8_t tensor_arena[kTensorArenaSize];
+bool should_clear_buffer = false;
+bool got_data = false;
+int gesture_index;
+static tflite::MicroErrorReporter micro_error_reporter;
+tflite::ErrorReporter* error_reporter = &micro_error_reporter;
+const tflite::Model* model = tflite::GetModel(g_magic_wand_model_data);
+static tflite::MicroOpResolver<5> micro_op_resolver;
+int input_length;
+
 int main(int argc, char* argv[]) {
 	green_led = 1;
 	// set up gestue dNN
-	{	constexpr int kTensorArenaSize = 60 * 1024;
-	uint8_t tensor_arena[kTensorArenaSize];
-	bool should_clear_buffer = false;
-	bool got_data = false;
-	int gesture_index;
-	static tflite::MicroErrorReporter micro_error_reporter;
-	tflite::ErrorReporter* error_reporter = &micro_error_reporter;
-	const tflite::Model* model = tflite::GetModel(g_magic_wand_model_data);
-	if (model->version() != TFLITE_SCHEMA_VERSION) {
-		error_reporter->Report(
-			"Model provided is schema version %d not equal "
-			"to supported version %d.",
-			model->version(), TFLITE_SCHEMA_VERSION);
-		return -1;
-	}
-	static tflite::MicroOpResolver<5> micro_op_resolver;
+	{	
 	micro_op_resolver.AddBuiltin(
 		tflite::BuiltinOperator_DEPTHWISE_CONV_2D,
 		tflite::ops::micro::Register_DEPTHWISE_CONV_2D());
@@ -58,26 +105,7 @@ int main(int argc, char* argv[]) {
 		tflite::ops::micro::Register_FULLY_CONNECTED());
 	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_SOFTMAX,
 		tflite::ops::micro::Register_SOFTMAX());
-	static tflite::MicroInterpreter static_interpreter(
-		model, micro_op_resolver, tensor_arena, kTensorArenaSize, error_reporter);
-	tflite::MicroInterpreter* interpreter = &static_interpreter;
-	interpreter->AllocateTensors();
-	TfLiteTensor* model_input = interpreter->input(0);
-	if ((model_input->dims->size != 4) || (model_input->dims->data[0] != 1) ||
-		(model_input->dims->data[1] != config.seq_length) ||
-		(model_input->dims->data[2] != kChannelNumber) ||
-		(model_input->type != kTfLiteFloat32)) {
-		error_reporter->Report("Bad input tensor parameters in model");
-		return -1;
-	}
-	int input_length = model_input->bytes / sizeof(float);
-	TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
-	if (setup_status != kTfLiteOk) {
-		error_reporter->Report("Set up failed\n");
-		return -1;
-	}
-	error_reporter->Report("Set up successful...\n"); }
-	//
+	 }
 	// load 3 songs
 	{	
 	char buffer;
@@ -126,7 +154,23 @@ int main(int argc, char* argv[]) {
 
 void gestureModeSelect()
 {
-	while (true) {
+	static tflite::MicroInterpreter static_interpreter(
+		model, micro_op_resolver, tensor_arena, kTensorArenaSize, error_reporter);
+	tflite::MicroInterpreter* interpreter = &static_interpreter;
+	interpreter->AllocateTensors();
+	TfLiteTensor* model_input = interpreter->input(0);
+	input_length = model_input->bytes / sizeof(float);
+	TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
+	if (setup_status != kTfLiteOk) {
+		error_reporter->Report("Set up failed\n");
+		return -1;
+	}
+	error_reporter->Report("Set up successful...\n");
+	uLCD.cls();
+	uLCD.text_width(3);
+	uLCD.text_height(3);
+	uLCD.printf("\nMode selection menu\n");
+	while (state == 1) {
 		// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
 			input_length, should_clear_buffer);
@@ -147,18 +191,92 @@ void gestureModeSelect()
 		// Clear the buffer next time we read data
 		should_clear_buffer = gesture_index < label_num;
 		// Produce an output
-		if (gesture_index < label_num) {
+		if (gesture_index < label_num && state == 1) {
 			error_reporter->Report(config.output_message[gesture_index]);
 			switch (gesture_index)
 			{
 			case 0:	// ring
 				state = 4;
+				uLCD.cls();
+				uLCD.text_width(3);
+				uLCD.text_height(3);
+				uLCD.printf("\nGo to song selection?\n");
 				return;
 			case 1:	// slope
 				state = 3;
+				uLCD.cls();
+				uLCD.text_width(3);
+				uLCD.text_height(3);
+				uLCD.printf("\nGo to Next song?\n");
 				return;
 			case 2:	// sprint
 				state = 2;
+				uLCD.cls();
+				uLCD.text_width(3);
+				uLCD.text_height(3);
+				uLCD.printf("\nGo to Last song?\n");
+				return;
+			}
+		}
+	}
+}
+void gestureSongSelect()
+{
+	static tflite::MicroInterpreter static_interpreter(
+		model, micro_op_resolver, tensor_arena, kTensorArenaSize, error_reporter);
+	tflite::MicroInterpreter* interpreter = &static_interpreter;
+	interpreter->AllocateTensors();
+	TfLiteTensor* model_input = interpreter->input(0);
+	input_length = model_input->bytes / sizeof(float);
+	TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
+	if (setup_status != kTfLiteOk) {
+		error_reporter->Report("Set up failed\n");
+		return -1;
+	}
+	error_reporter->Report("Set up successful...\n");
+	uLCD.cls();
+	uLCD.text_width(3);
+	uLCD.text_height(3);
+	uLCD.printf("\nsong selection menu\n");
+	while (state == 5) {
+		// Attempt to read new data from the accelerometer
+		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
+			input_length, should_clear_buffer);
+		// If there was no new data,
+		// don't try to clear the buffer again and wait until next time
+		if (!got_data) {
+			should_clear_buffer = false;
+			continue;
+		}
+		// Run inference, and report any error
+		TfLiteStatus invoke_status = interpreter->Invoke();
+		if (invoke_status != kTfLiteOk) {
+			error_reporter->Report("Invoke failed on index: %d\n", begin_index);
+			continue;
+		}
+		// Analyze the results to obtain a prediction
+		gesture_index = PredictGesture(interpreter->output(0)->data.f);
+		// Clear the buffer next time we read data
+		should_clear_buffer = gesture_index < label_num;
+		// Produce an output
+		if (gesture_index < label_num && state == 5) {
+			error_reporter->Report(config.output_message[gesture_index]);
+			switch (gesture_index)
+			{
+			case 0:	// ring
+				state = 6;
+				uLCD.cls();
+				uLCD.text_width(3);
+				uLCD.text_height(3);
+				uLCD.printf("\nGo to Song.%d?\n", songI);
+				return;
+			case 1:	// slope
+				songI--;
+				if (songI < 0) songI += 3;
+				return;
+			case 2:	// sprint
+				songI++;
+				if (songI > 2) songI -= 3;
 				return;
 			}
 		}
@@ -192,10 +310,10 @@ void PlayMode()
 	for (int j = 0; j < 3;)
 	{
 		if (state == 0) {
-			uLCD.reset();
+			uLCD.cls();
 			uLCD.text_width(3); 
 			uLCD.text_height(3);
-			uLCD.printf("Current Playing:\nSong %d\n", songI); 
+			uLCD.printf("\nCurrent Playing:\nSong %d\n", songI); 
 			
 			j = songI;
 			playSong(j, noteI + 1);
@@ -212,10 +330,7 @@ void sw2_rise()
 	switch (state) {
 	case 0:	// while playing song
 		state = 1;
-		uLCD.reset();
-		uLCD.text_width(3);
-		uLCD.text_height(3);
-		uLCD.printf("Mode selection menu");
+		void gestureModeSelect();
 		break;
 	case 2: //confim fowa
 		songI = (songI == 2) ? (0) : (songI + 1);
@@ -244,12 +359,15 @@ void sw3_rise()
 		break;
 	case 2:	
 		state = 1;
+		void gestureModeSelect();
 		break;
 	case 3: 
 		state = 1;
+		void gestureModeSelect();
 		break;
 	case 4:	
 		state = 1;
+		void gestureModeSelect();
 		break;
 	case 6:	// confim song selecte
 		state = 5;
