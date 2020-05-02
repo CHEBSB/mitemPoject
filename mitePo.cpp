@@ -61,7 +61,8 @@ DA7212 audio;
 Serial pc(USBTX, USBRX);
 InterruptIn sw2(SW2);
 InterruptIn sw3(SW3);
-EventQueue queue(32 * EVENTS_EVENT_SIZE);
+EventQueue queue1(32 * EVENTS_EVENT_SIZE);
+EventQueue queue2(32 * EVENTS_EVENT_SIZE);
 int idC = 0;
 int16_t song[3][48];	// 3 songs to choose
 int16_t waveform[kAudioTxBufferSize];
@@ -91,6 +92,9 @@ static tflite::MicroOpResolver<5> micro_op_resolver;
 int input_length;
 
 int main(int argc, char* argv[]) {
+	uLCD.text_width(4);
+	uLCD.text_height(4);
+	uLCD.printf("\nInitializing...\n");
 	green_led = 1;
 	// set up gestue dNN
 	{	
@@ -148,8 +152,11 @@ int main(int argc, char* argv[]) {
 	//
 	green_led = 0;
 
-
-	
+	t1.start(callback(&queue1, &EventQueue::dispatch_forever));
+	t2.start(callback(&queue2, &EventQueue::dispatch_forever));
+	sw2.rise(queue1.event(sw2_rise));
+	sw3.rise(queue2.event(sw3_rise));
+	PlayMode();
 }
 
 void gestureModeSelect()
