@@ -63,7 +63,7 @@ InterruptIn sw2(SW2);
 InterruptIn sw3(SW3);
 EventQueue queue(32 * EVENTS_EVENT_SIZE);
 int idC = 0;
-int16_t song[3][42];	// 3 songs to choose
+int16_t song[3][48];	// 3 songs to choose
 int16_t waveform[kAudioTxBufferSize];
 DigitalOut green_led(LED2);
 
@@ -111,7 +111,7 @@ int main(int argc, char* argv[]) {
 	char buffer;
 	audio.spk.pause();
 	for (int j = 0; j < 3; j++)
-		for (int i = 0; i < 42;)
+		for (int i = 0; i < 48;)
 			if (pc.readable()) {
 				buffer = pc.getc();
 				switch (buffer)
