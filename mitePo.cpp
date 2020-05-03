@@ -12,8 +12,6 @@
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/version.h"
-#define bufferLength (32)
-#define signalLength (1024)
 #define songlength 20
 
 int PredictGesture(float* output) {
@@ -69,7 +67,6 @@ EventQueue queue1(32 * EVENTS_EVENT_SIZE);
 EventQueue queue2(32 * EVENTS_EVENT_SIZE);
 Note song[3][songlength];	// 3 songs to choose
 int16_t waveform[kAudioTxBufferSize];
-DigitalOut green_led(LED2);
 
 Thread t(osPriorityLow);
 Thread t1(osPriorityNormal);
@@ -184,8 +181,6 @@ int main(int argc, char* argv[]) {
 
 void gestureModeSelect()
 {
-
-
 	static tflite::MicroErrorReporter micro_error_reporter;
 	tflite::ErrorReporter* error_reporter = &micro_error_reporter;
 	const tflite::Model* model = tflite::GetModel(g_magic_wand_model_data);
@@ -283,13 +278,6 @@ void gestureModeSelect()
 }
 void gestureSongSelect()
 {
-	constexpr int kTensorArenaSize = 60 * 1024;
-	uint8_t tensor_arena[kTensorArenaSize];
-	bool should_clear_buffer = false;
-	bool got_data = false;
-	int gesture_index;
-
-
 	static tflite::MicroErrorReporter micro_error_reporter;
 	tflite::ErrorReporter* error_reporter = &micro_error_reporter;
 	const tflite::Model* model = tflite::GetModel(g_magic_wand_model_data);
@@ -315,6 +303,7 @@ void gestureSongSelect()
 	tflite::MicroInterpreter* interpreter = &static_interpreter;
 	interpreter->AllocateTensors();
 	TfLiteTensor* model_input = interpreter->input(0);
+
 	int input_length = model_input->bytes / sizeof(float);
 	TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
 	if (setup_status != kTfLiteOk) {
@@ -325,9 +314,13 @@ void gestureSongSelect()
 	uLCD.cls();
 	uLCD.text_width(2);
 	uLCD.text_height(3);
-	uLCD.printf("\nsong\nselection\n");
-	while (state == 5) {
-		// Attempt to read new data from the accelerometer
+	uLCD.printf("\nMode\nselection\n");
+	while (state == 1) {
+		/*	uLCD.cls();
+			uLCD.text_width(2);
+			uLCD.text_height(3);
+			uLCD.printf("\nwaiting\ngesture\n......\n");*/
+			// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
 			input_length, should_clear_buffer);
 		// If there was no new data,
@@ -336,6 +329,10 @@ void gestureSongSelect()
 			should_clear_buffer = false;
 			continue;
 		}
+		uLCD.cls();
+		uLCD.text_width(2);
+		uLCD.text_height(3);
+		uLCD.printf("\nHelaso!\n");
 		// Run inference, and report any error
 		TfLiteStatus invoke_status = interpreter->Invoke();
 		if (invoke_status != kTfLiteOk) {
@@ -346,6 +343,7 @@ void gestureSongSelect()
 		gesture_index = PredictGesture(interpreter->output(0)->data.f);
 		// Clear the buffer next time we read data
 		should_clear_buffer = gesture_index < label_num;
+
 		// Produce an output
 		if (gesture_index < label_num && state == 5) {
 			error_reporter->Report(config.output_message[gesture_index]);
