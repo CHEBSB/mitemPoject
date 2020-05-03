@@ -14,7 +14,7 @@
 #include "tensorflow/lite/version.h"
 #define bufferLength (32)
 #define signalLength (1024)
-#define songlength 13
+#define songlength 20
 
 int PredictGesture(float* output) {
 	// How many times the most recent gesture has been matched in a row
@@ -55,7 +55,10 @@ int PredictGesture(float* output) {
 
 	return this_predict;
 }
-
+typedef struct note {
+	int16_t f;
+	int len;
+} Note;
 DA7212 audio;
 uLCD_4DGL uLCD(D1, D0, D2); // serial tx, serial rx, reset pin;
 Serial pc(USBTX, USBRX);
@@ -64,7 +67,7 @@ InterruptIn sw3(SW3);
 EventQueue queue(32 * EVENTS_EVENT_SIZE);
 EventQueue queue1(32 * EVENTS_EVENT_SIZE);
 EventQueue queue2(32 * EVENTS_EVENT_SIZE);
-int16_t song[3][songlength];	// 3 songs to choose
+Note song[3][songlength];	// 3 songs to choose
 int16_t waveform[kAudioTxBufferSize];
 DigitalOut green_led(LED2);
 
@@ -78,7 +81,7 @@ void sw2_rise();
 void sw3_rise();
 void gestureModeSelect();
 void gestureSongSelect();
-void playNote(int);
+void playNote(Note);
 void playSong(int, int);
 void PlayMode();
 
@@ -97,62 +100,80 @@ int main(int argc, char* argv[]) {
 	uLCD.text_width(2);
 	uLCD.text_height(4);
 	uLCD.printf("\nWaiting\nPC input\n");
-	green_led = 1;
-	// set up gestue dNN	
-/*micro_op_resolver.AddBuiltin(
-	  tflite::BuiltinOperator_DEPTHWISE_CONV_2D,
-	  tflite::ops::micro::Register_DEPTHWISE_CONV_2D());
-  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_MAX_POOL_2D,
-							   tflite::ops::micro::Register_MAX_POOL_2D());
-  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_CONV_2D,
-							   tflite::ops::micro::Register_CONV_2D());
-  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_FULLY_CONNECTED,
-							   tflite::ops::micro::Register_FULLY_CONNECTED());
-  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_SOFTMAX,
-							   tflite::ops::micro::Register_SOFTMAX());
-  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_RESHAPE,
-							 tflite::ops::micro::Register_RESHAPE(), 1);*/
-
-							 // load 3 songs	
-	char buffer;
+	// load 3 songs	
+	char list[3][songlength * 2 + 10];
+	for (int j = 0; j < 3;)
+		if (pc.readable()) {
+			pc.scanf("%s", list[j]);
+			wait(0.8f);
+			j++;
+		}
 	for (int j = 0; j < 3; j++)
-		for (int i = 0; i < songlength;)
-			if (pc.readable()) {
-				buffer = pc.getc();
-				switch (buffer)
-				{
-				case 'c':
-					song[j][i] = 261;
-					break;
-				case 'd':
-					song[j][i] = 294;
-					break;
-				case 'e':
-					song[j][i] = 330;
-					break;
-				case 'f':
-					song[j][i] = 349;
-					break;
-				case 'g':
-					song[j][i] = 392;
-					break;
-				case 'a':
-					song[j][i] = 440;
-					break;
-				case 'b':
-					song[j][i] = 494;
-					break;
-				case 's':
-					song[j][i] = song[j][i - 1];
-					break;
-				default:
-					song[j][i] = 261;
-				}
+		for (int i = 0, k = 0; k < songlength; k++) {
+			switch (list[j][k])
+			{
+			case 'w':
+				song[j][i].len = 1;
 				i++;
-				wait(0.09f);
+				break;
+			case 'x':
+				song[j][i].len = 2;
+				i++;
+				break;
+			case 'y':
+				song[j][i].len = 3;
+				i++;
+				break;
+			case 'z':
+				song[j][i].len = 4;
+				i++;
+				break;
+			case 'c':
+				song[j][i].f = 261;
+				break;
+			case 'd':
+				song[j][i].f = 294;
+				break;
+			case 'e':
+				song[j][i].f = 330;
+				break;
+			case 'f':
+				song[j][i].f = 349;
+				break;
+			case 'g':
+				song[j][i].f = 392;
+				break;
+			case 'a':
+				song[j][i].f = 440;
+				break;
+			case 'b':
+				song[j][i].f = 494;
+				break;
+			case 'C':
+				song[j][i].f = 523;
+				break;
+			case 'D':
+				song[j][i].f = 587;
+				break;
+			case 'E':
+				song[j][i].f = 659;
+				break;
+			case 'F':
+				song[j][i].f = 698;
+				break;
+			case 'G':
+				song[j][i].f = 784;
+				break;
+			case 'A':
+				song[j][i].f = 880;
+				break;
+			case 'B':
+				song[j][i].f = 988;
+				break;
+			case 's':
+				song[j][i].f = 0;
 			}
-
-	green_led = 0;
+		}
 	t.start(callback(&queue, &EventQueue::dispatch_forever));
 	t1.start(callback(&queue1, &EventQueue::dispatch_forever));
 	t2.start(callback(&queue2, &EventQueue::dispatch_forever));
@@ -350,15 +371,15 @@ void gestureSongSelect()
 	}
 }
 
-void playNote(int freq)
+void playNote(Note note)
 {
 	for (int i = 0; i < kAudioTxBufferSize; i++) {
 		waveform[i] = (int16_t)(sin((double)i * 2. * M_PI
-			/ (double)(kAudioSampleFrequency / freq))
+			/ (double)(kAudioSampleFrequency / note.f))
 			* ((1 << 16) - 1));
 	}
 	// the loop below will play the note for the duration of 1s
-	for (int j = 0; j < kAudioSampleFrequency / kAudioTxBufferSize; ++j)
+	for (int j = 0; j < kAudioSampleFrequency / kAudioTxBufferSize / 2 * note.len; ++j)
 		audio.spk.play(waveform, kAudioTxBufferSize);
 }
 void playSong(int j, int sp = 0)
@@ -367,8 +388,9 @@ void playSong(int j, int sp = 0)
 	for (i = sp; state == 0 && i < songlength; i++)
 	{
 		noteI = i;
-		queue.call(playNote, song[j][i]);
-		wait(1.0);
+		if (song[j][i].f != 0)
+			queue.call(playNote, song[j][i]);
+		wait(0.5 * song[j][i].len);
 	}
 	if (i == songlength)	noteI = -1;
 }
