@@ -68,9 +68,9 @@ int16_t song[3][songlength];	// 3 songs to choose
 int16_t waveform[kAudioTxBufferSize];
 DigitalOut green_led(LED2);
 
-Thread t;
-Thread t1;
-Thread t2;
+Thread t(osPriorityLow);
+Thread t1(osPriorityNormal);
+Thread t2(osPriorityHigh);
 int state = 0;
 int songI = 0;	// song index
 int noteI = -1;  // note index
@@ -87,11 +87,11 @@ uint8_t tensor_arena[kTensorArenaSize];
 bool should_clear_buffer = false;
 bool got_data = false;
 int gesture_index;
-static tflite::MicroErrorReporter micro_error_reporter;
-tflite::ErrorReporter* error_reporter = &micro_error_reporter;
-const tflite::Model* model = tflite::GetModel(g_magic_wand_model_data);
-static tflite::MicroOpResolver<5> micro_op_resolver;
-int input_length;
+//static tflite::MicroErrorReporter micro_error_reporter;
+//tflite::ErrorReporter* error_reporter = &micro_error_reporter;
+//const tflite::Model* model = tflite::GetModel(g_magic_wand_model_data);
+//static tflite::MicroOpResolver<6> micro_op_resolver;
+//int input_length;
 
 int main(int argc, char* argv[]) {
 	uLCD.text_width(2);
@@ -99,19 +99,21 @@ int main(int argc, char* argv[]) {
 	uLCD.printf("\nWaiting\nPC input\n");
 	green_led = 1;
 	// set up gestue dNN	
-	micro_op_resolver.AddBuiltin(
-		tflite::BuiltinOperator_DEPTHWISE_CONV_2D,
-		tflite::ops::micro::Register_DEPTHWISE_CONV_2D());
-	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_MAX_POOL_2D,
-		tflite::ops::micro::Register_MAX_POOL_2D());
-	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_CONV_2D,
-		tflite::ops::micro::Register_CONV_2D());
-	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_FULLY_CONNECTED,
-		tflite::ops::micro::Register_FULLY_CONNECTED());
-	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_SOFTMAX,
-		tflite::ops::micro::Register_SOFTMAX());
-	
-	// load 3 songs	
+/*micro_op_resolver.AddBuiltin(
+	  tflite::BuiltinOperator_DEPTHWISE_CONV_2D,
+	  tflite::ops::micro::Register_DEPTHWISE_CONV_2D());
+  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_MAX_POOL_2D,
+							   tflite::ops::micro::Register_MAX_POOL_2D());
+  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_CONV_2D,
+							   tflite::ops::micro::Register_CONV_2D());
+  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_FULLY_CONNECTED,
+							   tflite::ops::micro::Register_FULLY_CONNECTED());
+  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_SOFTMAX,
+							   tflite::ops::micro::Register_SOFTMAX());
+  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_RESHAPE,
+							 tflite::ops::micro::Register_RESHAPE(), 1);*/
+
+							 // load 3 songs	
 	char buffer;
 	for (int j = 0; j < 3; j++)
 		for (int i = 0; i < songlength;)
@@ -147,9 +149,9 @@ int main(int argc, char* argv[]) {
 					song[j][i] = 261;
 				}
 				i++;
-				wait(0.19f);
+				wait(0.09f);
 			}
-	
+
 	green_led = 0;
 	t.start(callback(&queue, &EventQueue::dispatch_forever));
 	t1.start(callback(&queue1, &EventQueue::dispatch_forever));
@@ -161,12 +163,35 @@ int main(int argc, char* argv[]) {
 
 void gestureModeSelect()
 {
+
+
+	static tflite::MicroErrorReporter micro_error_reporter;
+	tflite::ErrorReporter* error_reporter = &micro_error_reporter;
+	const tflite::Model* model = tflite::GetModel(g_magic_wand_model_data);
+
+	static tflite::MicroOpResolver<6> micro_op_resolver;
+	micro_op_resolver.AddBuiltin(
+		tflite::BuiltinOperator_DEPTHWISE_CONV_2D,
+		tflite::ops::micro::Register_DEPTHWISE_CONV_2D());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_MAX_POOL_2D,
+		tflite::ops::micro::Register_MAX_POOL_2D());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_CONV_2D,
+		tflite::ops::micro::Register_CONV_2D());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_FULLY_CONNECTED,
+		tflite::ops::micro::Register_FULLY_CONNECTED());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_SOFTMAX,
+		tflite::ops::micro::Register_SOFTMAX());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_RESHAPE,
+		tflite::ops::micro::Register_RESHAPE(), 1);
+
+
 	static tflite::MicroInterpreter static_interpreter(
 		model, micro_op_resolver, tensor_arena, kTensorArenaSize, error_reporter);
 	tflite::MicroInterpreter* interpreter = &static_interpreter;
 	interpreter->AllocateTensors();
 	TfLiteTensor* model_input = interpreter->input(0);
-	input_length = model_input->bytes / sizeof(float);
+
+	int input_length = model_input->bytes / sizeof(float);
 	TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
 	if (setup_status != kTfLiteOk) {
 		error_reporter->Report("Set up failed\n");
@@ -178,7 +203,11 @@ void gestureModeSelect()
 	uLCD.text_height(3);
 	uLCD.printf("\nMode\nselection\n");
 	while (state == 1) {
-		// Attempt to read new data from the accelerometer
+		/*	uLCD.cls();
+			uLCD.text_width(2);
+			uLCD.text_height(3);
+			uLCD.printf("\nwaiting\ngesture\n......\n");*/
+			// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
 			input_length, should_clear_buffer);
 		// If there was no new data,
@@ -187,6 +216,10 @@ void gestureModeSelect()
 			should_clear_buffer = false;
 			continue;
 		}
+		uLCD.cls();
+		uLCD.text_width(2);
+		uLCD.text_height(3);
+		uLCD.printf("\nHelaso!\n");
 		// Run inference, and report any error
 		TfLiteStatus invoke_status = interpreter->Invoke();
 		if (invoke_status != kTfLiteOk) {
@@ -198,6 +231,7 @@ void gestureModeSelect()
 		// Clear the buffer next time we read data
 		should_clear_buffer = gesture_index < label_num;
 		// Produce an output
+
 		if (gesture_index < label_num && state == 1) {
 			switch (gesture_index)
 			{
@@ -228,12 +262,39 @@ void gestureModeSelect()
 }
 void gestureSongSelect()
 {
+	constexpr int kTensorArenaSize = 60 * 1024;
+	uint8_t tensor_arena[kTensorArenaSize];
+	bool should_clear_buffer = false;
+	bool got_data = false;
+	int gesture_index;
+
+
+	static tflite::MicroErrorReporter micro_error_reporter;
+	tflite::ErrorReporter* error_reporter = &micro_error_reporter;
+	const tflite::Model* model = tflite::GetModel(g_magic_wand_model_data);
+
+	static tflite::MicroOpResolver<6> micro_op_resolver;
+	micro_op_resolver.AddBuiltin(
+		tflite::BuiltinOperator_DEPTHWISE_CONV_2D,
+		tflite::ops::micro::Register_DEPTHWISE_CONV_2D());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_MAX_POOL_2D,
+		tflite::ops::micro::Register_MAX_POOL_2D());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_CONV_2D,
+		tflite::ops::micro::Register_CONV_2D());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_FULLY_CONNECTED,
+		tflite::ops::micro::Register_FULLY_CONNECTED());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_SOFTMAX,
+		tflite::ops::micro::Register_SOFTMAX());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_RESHAPE,
+		tflite::ops::micro::Register_RESHAPE(), 1);
+
+
 	static tflite::MicroInterpreter static_interpreter(
 		model, micro_op_resolver, tensor_arena, kTensorArenaSize, error_reporter);
 	tflite::MicroInterpreter* interpreter = &static_interpreter;
 	interpreter->AllocateTensors();
 	TfLiteTensor* model_input = interpreter->input(0);
-	input_length = model_input->bytes / sizeof(float);
+	int input_length = model_input->bytes / sizeof(float);
 	TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
 	if (setup_status != kTfLiteOk) {
 		error_reporter->Report("Set up failed\n");
@@ -304,23 +365,23 @@ void playSong(int j, int sp = 0)
 {
 	int i;
 	for (i = sp; state == 0 && i < songlength; i++)
-	{	
+	{
 		noteI = i;
 		queue.call(playNote, song[j][i]);
 		wait(1.0);
 	}
 	if (i == songlength)	noteI = -1;
 }
-void PlayMode() 
+void PlayMode()
 {
 	for (int j = 0; j < 3;)
 	{
 		if (state == 0) {
 			uLCD.cls();
-			uLCD.text_width(2); 
+			uLCD.text_width(2);
 			uLCD.text_height(3);
-			uLCD.printf("\nCurrent\nPlaying:\nSong %d\n", songI); 
-			
+			uLCD.printf("\nCurrent\nPlaying:\nSong %d\n", songI);
+
 			j = songI;
 			playSong(j, noteI + 1);
 
@@ -336,15 +397,15 @@ void sw2_rise()
 	switch (state) {
 	case 0:	// while playing song
 		state = 1;
-		gestureModeSelect();
+		queue1.call(gestureModeSelect);
 		break;
-	case 2: //confim fowa
-		songI = (songI == 2) ? (0) : (songI + 1);
+	case 2: //confim last
+		songI--;
+		if (songI < 0) songI = 2;
 		noteI = -1;
 		state = 0;
 		break;
-	case 3:	// confim backwa
-		songI = (songI == 0) ? (2) : (songI - 1);
+	case 3:	// confim next
 		noteI = -1;
 		state = 0;
 		break;
@@ -354,6 +415,7 @@ void sw2_rise()
 		uLCD.text_width(2);
 		uLCD.text_height(2);
 		uLCD.printf("\nSong\nselection\nmenu\n");
+		queue1.call(gestureSongSelect);
 		break;
 	case 6:	// confim song selecte
 		noteI = -1;
@@ -365,19 +427,20 @@ void sw3_rise()
 	switch (state) {
 	case 1: //confim fowa
 		state = 0;
+		if (--songI < 0) songI = 2;
 		break;
-	case 2:	
+	case 2:
 		state = 1;
 		gestureModeSelect();
 		break;
-	case 3: 
+	case 3:
 		state = 1;
 		gestureModeSelect();
 		break;
-	case 4:	
+	case 4:
 		state = 1;
 		gestureModeSelect();
-		break;
+		break; queue1.call(gestureModeSelect);
 	case 6:	// confim song selecte
 		state = 5;
 		gestureSongSelect();

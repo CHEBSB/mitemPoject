@@ -5,6 +5,7 @@ import time
 waitTime = 0.2
 
 # generate the waveform table
+#signal1 = "ccggaabsffeeddasggffeedsggffeedsccggaabsffeeddas"
 signal1 = "cdefgabagfedc"
 #signal2 = "geesfddscdefgggdgeesfddsceggcsssdddddefseeeeefgs"
 signal2 = "cceeggaacceeg"
