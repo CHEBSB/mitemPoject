@@ -57,7 +57,7 @@ int PredictGesture(float* output) {
 	return this_predict;
 }
 typedef struct note {
-	int16_t f;
+	int f;
 	int len;
 } Note;
 DA7212 audio;
@@ -72,10 +72,10 @@ EventQueue queueM(32 * EVENTS_EVENT_SIZE);
 Note song[numOfSong][songlength];	// 3 songs to choose
 int16_t waveform[kAudioTxBufferSize];
 
-Thread t(osPriorityLow);
-Thread t1(osPriorityNormal);
+Thread t;
+Thread t1;
 Thread t2(osPriorityHigh);
-Thread tM(osPriorityLow);
+Thread tM;
 int state = 0;
 int songI = 0;	// song index
 int noteI = -1;  // note index
@@ -85,7 +85,7 @@ int idc;
 int idb;
 void gestureModeSelect();
 void gestureSongSelect();
-void playNote(Note);
+void playNote(int);
 void playSong(int, int);
 void PlayMode();
 
@@ -108,7 +108,7 @@ int main(int argc, char* argv[]) {
 			j++;
 		}
 	for (int j = 0; j < numOfSong; j++)
-		for (int i = 0, k = 0; k < songlength; k++) {
+		for (int i = 0, k = 0; k < 2 * songlength; k++) {
 			switch (list[j][k])
 			{
 			case 'w':
@@ -221,6 +221,7 @@ void gestureModeSelect()
 	uLCD.text_width(2);
 	uLCD.text_height(3);
 	uLCD.printf("\nMode\nselection\n");
+	wait(0.2f);
 	while (state == 1) {
 		// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
@@ -313,7 +314,8 @@ void gestureSongSelect()
 	uLCD.cls();
 	uLCD.text_width(2);
 	uLCD.text_height(3);
-	uLCD.printf("\nMode\nselection\n");
+	uLCD.printf("\nSong\nselection\n");
+	wait(0.2f);
 	while (state == 1) {
 		// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
@@ -370,26 +372,33 @@ void gestureSongSelect()
 	}
 }
 
-void playNote(Note note)
+void playNote(int freq)
 {
-	for (int i = 0; i < kAudioTxBufferSize; i++) {
-		waveform[i] = (int16_t)(sin((double)i * 2. * M_PI
-			/ (double)(kAudioSampleFrequency / note.f))
-			* ((1 << 16) - 1));
+	for (int i = 0; i < kAudioTxBufferSize; i++)
+	{
+		waveform[i] = (int16_t)(sin((double)i * 2.
+			* M_PI / (double)(kAudioSampleFrequency
+				/ freq)) * ((1 << 16) - 1));
 	}
-	// the loop below will play the note for the duration of 1s
-	for (int j = 0; j < kAudioSampleFrequency / kAudioTxBufferSize / 2 * note.len; ++j)
-		audio.spk.play(waveform, kAudioTxBufferSize);
+	audio.spk.play(waveform, kAudioTxBufferSize);
 }
 void playSong(int j, int sp = 0)
 {
 	int i;
-	for (i = sp; state == 0 && i < songlength; i++)
-	{
+	for (i = sp; state == 0 && i < songlength; i++) {
 		noteI = i;
-		if (song[j][i].f != 0)
-			queue.call(playNote, song[j][i]);
-		wait(0.5 * song[j][i].len);
+		int length = song[j][i].len;
+		while (length--)
+		{
+			// the loop below will play the note for the duration of 1s
+			if (song[j][i].f != 0) {
+				for (int k = 0; k < kAudioSampleFrequency / kAudioTxBufferSize; ++k)
+					queue.call(playNote, song[j][i].f);
+			}
+			else
+				wait(1.0);
+			if (length < 1) wait(1.0);
+		}
 	}
 	if (i == songlength)	noteI = -1;
 }
