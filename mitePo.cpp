@@ -13,6 +13,9 @@
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/version.h"
 #define songlength 20
+#define numOfSong 3
+#define CircuIncre(a) ((a + 1 >= numOfSong)? 0: a+1)
+#define CircuDecre(a) ((a - 1 < 0)? 2: a-1)
 
 int PredictGesture(float* output) {
 	// How many times the most recent gesture has been matched in a row
@@ -65,17 +68,21 @@ InterruptIn sw3(SW3);
 EventQueue queue(32 * EVENTS_EVENT_SIZE);
 EventQueue queue1(32 * EVENTS_EVENT_SIZE);
 EventQueue queue2(32 * EVENTS_EVENT_SIZE);
-Note song[3][songlength];	// 3 songs to choose
+EventQueue queueM(32 * EVENTS_EVENT_SIZE);
+Note song[numOfSong][songlength];	// 3 songs to choose
 int16_t waveform[kAudioTxBufferSize];
 
 Thread t(osPriorityLow);
 Thread t1(osPriorityNormal);
 Thread t2(osPriorityHigh);
+Thread tM(osPriorityLow);
 int state = 0;
 int songI = 0;	// song index
 int noteI = -1;  // note index
 void sw2_rise();
 void sw3_rise();
+int idc;
+int idb;
 void gestureModeSelect();
 void gestureSongSelect();
 void playNote(Note);
@@ -87,25 +94,20 @@ uint8_t tensor_arena[kTensorArenaSize];
 bool should_clear_buffer = false;
 bool got_data = false;
 int gesture_index;
-//static tflite::MicroErrorReporter micro_error_reporter;
-//tflite::ErrorReporter* error_reporter = &micro_error_reporter;
-//const tflite::Model* model = tflite::GetModel(g_magic_wand_model_data);
-//static tflite::MicroOpResolver<6> micro_op_resolver;
-//int input_length;
 
 int main(int argc, char* argv[]) {
 	uLCD.text_width(2);
 	uLCD.text_height(4);
 	uLCD.printf("\nWaiting\nPC input\n");
 	// load 3 songs	
-	char list[3][songlength * 2 + 10];
-	for (int j = 0; j < 3;)
+	char list[numOfSong][songlength * 2 + 10];
+	for (int j = 0; j < numOfSong;)
 		if (pc.readable()) {
 			pc.scanf("%s", list[j]);
 			wait(0.8f);
 			j++;
 		}
-	for (int j = 0; j < 3; j++)
+	for (int j = 0; j < numOfSong; j++)
 		for (int i = 0, k = 0; k < songlength; k++) {
 			switch (list[j][k])
 			{
@@ -174,9 +176,10 @@ int main(int argc, char* argv[]) {
 	t.start(callback(&queue, &EventQueue::dispatch_forever));
 	t1.start(callback(&queue1, &EventQueue::dispatch_forever));
 	t2.start(callback(&queue2, &EventQueue::dispatch_forever));
+	tM.start(callback(&queueM, &EventQueue::dispatch_forever));
 	sw2.rise(queue1.event(sw2_rise));
 	sw3.rise(queue2.event(sw3_rise));
-	PlayMode();
+	queueM.call(PlayMode);
 }
 
 void gestureModeSelect()
@@ -219,11 +222,7 @@ void gestureModeSelect()
 	uLCD.text_height(3);
 	uLCD.printf("\nMode\nselection\n");
 	while (state == 1) {
-		/*	uLCD.cls();
-			uLCD.text_width(2);
-			uLCD.text_height(3);
-			uLCD.printf("\nwaiting\ngesture\n......\n");*/
-			// Attempt to read new data from the accelerometer
+		// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
 			input_length, should_clear_buffer);
 		// If there was no new data,
@@ -259,18 +258,18 @@ void gestureModeSelect()
 				uLCD.printf("\nGo to\nsong selection?\n");
 				return;
 			case 1:	// slope
-				state = 3;
-				uLCD.cls();
-				uLCD.text_width(2);
-				uLCD.text_height(3);
-				uLCD.printf("\nGo to\nNext song?\n");
-				return;
-			case 2:	// sprint
 				state = 2;
 				uLCD.cls();
 				uLCD.text_width(2);
 				uLCD.text_height(3);
 				uLCD.printf("\nGo to\nLast song?\n");
+				return;
+			case 2:	// sprint
+				state = 3;
+				uLCD.cls();
+				uLCD.text_width(2);
+				uLCD.text_height(3);
+				uLCD.printf("\nGo to\nNext song?\n");
 				return;
 			}
 		}
@@ -316,11 +315,7 @@ void gestureSongSelect()
 	uLCD.text_height(3);
 	uLCD.printf("\nMode\nselection\n");
 	while (state == 1) {
-		/*	uLCD.cls();
-			uLCD.text_width(2);
-			uLCD.text_height(3);
-			uLCD.printf("\nwaiting\ngesture\n......\n");*/
-			// Attempt to read new data from the accelerometer
+		// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
 			input_length, should_clear_buffer);
 		// If there was no new data,
@@ -329,11 +324,11 @@ void gestureSongSelect()
 			should_clear_buffer = false;
 			continue;
 		}
-		uLCD.cls();
-		uLCD.text_width(2);
-		uLCD.text_height(3);
-		uLCD.printf("\nHelaso!\n");
-		// Run inference, and report any error
+		/*		uLCD.cls();
+				uLCD.text_width(2);
+				uLCD.text_height(3);
+				uLCD.printf("\nHelaso!\n");*/
+				// Run inference, and report any error
 		TfLiteStatus invoke_status = interpreter->Invoke();
 		if (invoke_status != kTfLiteOk) {
 			error_reporter->Report("Invoke failed on index: %d\n", begin_index);
@@ -357,12 +352,18 @@ void gestureSongSelect()
 				uLCD.printf("\nGo to Song.%d?\n", songI);
 				return;
 			case 1:	// slope
-				songI--;
-				if (songI < 0) songI += 3;
+				songI = CircuDecre(songI);
+				uLCD.cls();
+				uLCD.text_width(2);
+				uLCD.text_height(2);
+				uLCD.printf("\n<-<-<-\nNow at:\nSong.%d\n", songI);
 				continue;
 			case 2:	// sprint
-				songI++;
-				if (songI > 2) songI -= 3;
+				songI = CircuIncre(songI);
+				uLCD.cls();
+				uLCD.text_width(2);
+				uLCD.text_height(2);
+				uLCD.printf("\n->->->\nNow at:\nSong.%d\n", songI);
 				continue;
 			}
 		}
@@ -394,7 +395,7 @@ void playSong(int j, int sp = 0)
 }
 void PlayMode()
 {
-	for (int j = 0; j < 3;)
+	for (int j = 0; j < numOfSong;)
 	{
 		if (state == 0) {
 			uLCD.cls();
@@ -404,10 +405,11 @@ void PlayMode()
 
 			j = songI;
 			playSong(j, noteI + 1);
-
-			j++;
-			if (j == 3)	j = 0;
-			songI = j;
+			// so that pause won't change songI
+			if (state == 0) {
+				j = CircuIncre(j);
+				songI = j;
+			}
 		}
 	}
 }
@@ -417,25 +419,21 @@ void sw2_rise()
 	switch (state) {
 	case 0:	// while playing song
 		state = 1;
-		queue1.call(gestureModeSelect);
+		idc = queue1.call(gestureModeSelect);
 		break;
 	case 2: //confim last
-		songI--;
-		if (songI < 0) songI = 2;
+		songI = CircuDecre(songI);
 		noteI = -1;
 		state = 0;
 		break;
 	case 3:	// confim next
+		songI = CircuIncre(songI);
 		noteI = -1;
 		state = 0;
 		break;
 	case 4: // confim into song select
 		state = 5;
-		uLCD.cls();
-		uLCD.text_width(2);
-		uLCD.text_height(2);
-		uLCD.printf("\nSong\nselection\nmenu\n");
-		queue1.call(gestureSongSelect);
+		idb = queue1.call(gestureSongSelect);
 		break;
 	case 6:	// confim song selecte
 		noteI = -1;
@@ -445,24 +443,32 @@ void sw2_rise()
 void sw3_rise()
 {
 	switch (state) {
-	case 1: //confim fowa
+	case 1: // back to playMode
+		queue1.cancel(idc);
 		state = 0;
-		if (--songI < 0) songI = 2;
+		uLCD.cls();
+		uLCD.text_width(2);
+		uLCD.text_height(3);
+		uLCD.printf("\nCurrent\nPlaying:\nSong %d\n", songI);
 		break;
 	case 2:
+		queue1.cancel(idc);
 		state = 1;
-		gestureModeSelect();
+		idc = queue1.call(gestureModeSelect);
 		break;
 	case 3:
+		queue1.cancel(idc);
 		state = 1;
-		gestureModeSelect();
+		idc = queue1.call(gestureModeSelect);
 		break;
 	case 4:
+		queue1.cancel(idc);
 		state = 1;
-		gestureModeSelect();
-		break; queue1.call(gestureModeSelect);
+		idc = queue1.call(gestureModeSelect);
+		break;
 	case 6:	// confim song selecte
+		queue1.cancel(idb);
 		state = 5;
-		gestureSongSelect();
+		idb = queue1.call(gestureSongSelect);
 	}
 }
