@@ -145,6 +145,21 @@ int main(int argc, char* argv[]) {
 			case 'a':
 				song[j][i].f = 440;
 				break;
+			case 'j':
+				song[j][i].f = 277;
+				break;
+			case 'k':
+				song[j][i].f = 311;
+				break;
+			case 'l':
+				song[j][i].f = 370;
+				break;
+			case 'm':
+				song[j][i].f = 415;
+				break;
+			case 'n':
+				song[j][i].f = 466;
+				break;
 			case 'b':
 				song[j][i].f = 494;
 				break;
@@ -168,6 +183,21 @@ int main(int argc, char* argv[]) {
 				break;
 			case 'B':
 				song[j][i].f = 988;
+				break;
+			case 'J':
+				song[j][i].f = 554;
+				break;
+			case 'K':
+				song[j][i].f = 622;
+				break;
+			case 'L':
+				song[j][i].f = 740;
+				break;
+			case 'M':
+				song[j][i].f = 831;
+				break;
+			case 'N':
+				song[j][i].f = 932;
 				break;
 			case 's':
 				song[j][i].f = 0;
