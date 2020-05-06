@@ -98,7 +98,7 @@ int gesture_index;
 int main(int argc, char* argv[]) {
 	uLCD.text_width(2);
 	uLCD.text_height(4);
-	uLCD.printf("\nWaiting\nPC input\n");
+	uLCD.printf("\nAwaiting\nPC input\n");
 	// load 3 songs	
 	char list[numOfSong][songlength * 2 + 10];
 	for (int j = 0; j < numOfSong;)
@@ -221,7 +221,7 @@ void gestureModeSelect()
 	uLCD.text_width(2);
 	uLCD.text_height(3);
 	uLCD.printf("\nMode\nselection\n");
-	wait(0.2f);
+	wait(0.2);
 	while (state == 1) {
 		// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
@@ -235,7 +235,7 @@ void gestureModeSelect()
 		uLCD.cls();
 		uLCD.text_width(2);
 		uLCD.text_height(3);
-		uLCD.printf("\nHelaso!\n");
+		uLCD.printf("\n...\n");
 		// Run inference, and report any error
 		TfLiteStatus invoke_status = interpreter->Invoke();
 		if (invoke_status != kTfLiteOk) {
@@ -315,7 +315,7 @@ void gestureSongSelect()
 	uLCD.text_width(2);
 	uLCD.text_height(3);
 	uLCD.printf("\nSong\nselection\n");
-	wait(0.2f);
+	wait(0.2);
 	while (state == 1) {
 		// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
@@ -326,11 +326,11 @@ void gestureSongSelect()
 			should_clear_buffer = false;
 			continue;
 		}
-		/*		uLCD.cls();
-				uLCD.text_width(2);
-				uLCD.text_height(3);
-				uLCD.printf("\nHelaso!\n");*/
-				// Run inference, and report any error
+		uLCD.cls();
+		uLCD.text_width(2);
+		uLCD.text_height(3);
+		uLCD.printf("\n...\n");
+		// Run inference, and report any error
 		TfLiteStatus invoke_status = interpreter->Invoke();
 		if (invoke_status != kTfLiteOk) {
 			error_reporter->Report("Invoke failed on index: %d\n", begin_index);
@@ -358,14 +358,14 @@ void gestureSongSelect()
 				uLCD.cls();
 				uLCD.text_width(2);
 				uLCD.text_height(2);
-				uLCD.printf("\n<-<-<-\nNow at:\nSong.%d\n", songI);
+				uLCD.printf("\n<- <-\nNow at:\nSong.%d\n", songI);
 				continue;
 			case 2:	// sprint
 				songI = CircuIncre(songI);
 				uLCD.cls();
 				uLCD.text_width(2);
 				uLCD.text_height(2);
-				uLCD.printf("\n->->->\nNow at:\nSong.%d\n", songI);
+				uLCD.printf("\n-> ->\nNow at:\nSong.%d\n", songI);
 				continue;
 			}
 		}
@@ -376,13 +376,12 @@ void playNote(int freq)
 {
 	for (int i = 0; i < kAudioTxBufferSize; i++)
 	{
-		waveform[i] = (int16_t)(sin((double)i * 2.
-			* M_PI / (double)(kAudioSampleFrequency
-				/ freq)) * ((1 << 16) - 1));
+		waveform[i] = (int16_t)(sin((double)i * 2. * M_PI
+		/ (double)(kAudioSampleFrequency / freq)) * ((1 << 16) - 1));
 	}
 	audio.spk.play(waveform, kAudioTxBufferSize);
 }
-void playSong(int j, int sp = 0)
+void playSong(int j, int sp)
 {
 	int i;
 	for (i = sp; state == 0 && i < songlength; i++) {
@@ -390,15 +389,13 @@ void playSong(int j, int sp = 0)
 		int length = song[j][i].len;
 		while (length--)
 		{
-			// the loop below will play the note for the duration of 1s
+			// the loop below will play the note for  0.5s
 			if (song[j][i].f != 0) {
-				for (int k = 0; k < kAudioSampleFrequency / kAudioTxBufferSize; ++k)
+				for (int k = 0; k < kAudioSampleFrequency / kAudioTxBufferSize / 2; k++)
 					queue.call(playNote, song[j][i].f);
 			}
-			else
-				wait(1.0);
-			if (length < 1) wait(1.0);
 		}
+		wait(0.5);
 	}
 	if (i == songlength)	noteI = -1;
 }
