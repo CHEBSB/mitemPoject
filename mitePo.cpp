@@ -63,6 +63,8 @@ typedef struct note {
 DA7212 audio;
 uLCD_4DGL uLCD(D1, D0, D2); // serial tx, serial rx, reset pin;
 Serial pc(USBTX, USBRX);
+Timer deboun1;
+Timer deboun2;
 InterruptIn sw2(SW2);
 InterruptIn sw3(SW3);
 EventQueue queue(32 * EVENTS_EVENT_SIZE);
@@ -72,10 +74,10 @@ EventQueue queueM(32 * EVENTS_EVENT_SIZE);
 Note song[numOfSong][songlength];	// 3 songs to choose
 int16_t waveform[kAudioTxBufferSize];
 
-Thread t;
-Thread t1;
+Thread t(osPriorityLow);
+Thread t1(osPriorityNormal);
 Thread t2(osPriorityHigh);
-Thread tM;
+Thread tM(osPriorityLow);
 int state = 0;
 int songI = 0;	// song index
 int noteI = -1;  // note index
@@ -103,29 +105,24 @@ int main(int argc, char* argv[]) {
 	char list[numOfSong][songlength * 2 + 10];
 	for (int j = 0; j < numOfSong;)
 		if (pc.readable()) {
-			pc.scanf("%s", list[j]);
+			pc.scanf("%s", list[j++]);
 			wait(0.8f);
-			j++;
 		}
 	for (int j = 0; j < numOfSong; j++)
 		for (int i = 0, k = 0; k < 2 * songlength; k++) {
 			switch (list[j][k])
 			{
 			case 'w':
-				song[j][i].len = 1;
-				i++;
+				song[j][i++].len = 1;
 				break;
 			case 'x':
-				song[j][i].len = 2;
-				i++;
+				song[j][i++].len = 2;
 				break;
 			case 'y':
-				song[j][i].len = 3;
-				i++;
+				song[j][i++].len = 3;
 				break;
 			case 'z':
-				song[j][i].len = 4;
-				i++;
+				song[j][i++].len = 4;
 				break;
 			case 'c':
 				song[j][i].f = 261;
@@ -383,11 +380,11 @@ void playNote(int freq)
 }
 void playSong(int j, int sp)
 {
-	int i;
+	int i, length;
 	for (i = sp; state == 0 && i < songlength; i++) {
 		noteI = i;
-		int length = song[j][i].len;
-		while (length--)
+		length = song[j][i].len;
+		while ((length--) && (state == 0))
 		{
 			// the loop below will play the note for  0.5s
 			if (song[j][i].f != 0) {
@@ -397,7 +394,6 @@ void playSong(int j, int sp)
 		}
 		wait(0.5);
 	}
-	if (i == songlength)	noteI = -1;
 }
 void PlayMode()
 {
@@ -412,9 +408,10 @@ void PlayMode()
 			j = songI;
 			playSong(j, noteI + 1);
 			// so that pause won't change songI
-			if (state == 0) {
+			if (state == 0) {	// afte completely play a song
 				j = CircuIncre(j);
 				songI = j;
+				noteI = -1;
 			}
 		}
 	}
@@ -422,59 +419,65 @@ void PlayMode()
 
 void sw2_rise()
 {
-	switch (state) {
-	case 0:	// while playing song
-		state = 1;
-		idc = queue1.call(gestureModeSelect);
-		break;
-	case 2: //confim last
-		songI = CircuDecre(songI);
-		noteI = -1;
-		state = 0;
-		break;
-	case 3:	// confim next
-		songI = CircuIncre(songI);
-		noteI = -1;
-		state = 0;
-		break;
-	case 4: // confim into song select
-		state = 5;
-		idb = queue1.call(gestureSongSelect);
-		break;
-	case 6:	// confim song selecte
-		noteI = -1;
-		state = 0;
+	if (deboun1.read_ms() > 1000) {
+		switch (state) {
+		case 0:	// while playing song
+			state = 1;
+			idc = queue1.call(gestureModeSelect);
+			break;
+		case 2: //confim last
+			songI = CircuDecre(songI);
+			noteI = -1;
+			state = 0;
+			break;
+		case 3:	// confim next
+			songI = CircuIncre(songI);
+			noteI = -1;
+			state = 0;
+			break;
+		case 4: // confim into song select
+			state = 5;
+			idb = queue1.call(gestureSongSelect);
+			break;
+		case 6:	// confim song selecte
+			noteI = -1;
+			state = 0;
+		}
+		deboun1.reset();
 	}
 }
 void sw3_rise()
 {
-	switch (state) {
-	case 1: // back to playMode
-		queue1.cancel(idc);
-		state = 0;
-		uLCD.cls();
-		uLCD.text_width(2);
-		uLCD.text_height(3);
-		uLCD.printf("\nCurrent\nPlaying:\nSong %d\n", songI);
-		break;
-	case 2:
-		queue1.cancel(idc);
-		state = 1;
-		idc = queue1.call(gestureModeSelect);
-		break;
-	case 3:
-		queue1.cancel(idc);
-		state = 1;
-		idc = queue1.call(gestureModeSelect);
-		break;
-	case 4:
-		queue1.cancel(idc);
-		state = 1;
-		idc = queue1.call(gestureModeSelect);
-		break;
-	case 6:	// confim song selecte
-		queue1.cancel(idb);
-		state = 5;
-		idb = queue1.call(gestureSongSelect);
+	if (deboun2.read_ms() > 1000) {
+		switch (state) {
+		case 1: // back to playMode
+			queue1.cancel(idc);
+			state = 0;
+			uLCD.cls();
+			uLCD.text_width(2);
+			uLCD.text_height(3);
+			uLCD.printf("\nCurrent\nPlaying:\nSong %d\n", songI);
+			break;
+		case 2:
+			queue1.cancel(idc);
+			state = 1;
+			idc = queue1.call(gestureModeSelect);
+			break;
+		case 3:
+			queue1.cancel(idc);
+			state = 1;
+			idc = queue1.call(gestureModeSelect);
+			break;
+		case 4:
+			queue1.cancel(idc);
+			state = 1;
+			idc = queue1.call(gestureModeSelect);
+			break;
+		case 6:	// confim song selecte
+			queue1.cancel(idb);
+			state = 5;
+			idb = queue1.call(gestureSongSelect);
+		}
+		deboun2.reset();
 	}
 }
