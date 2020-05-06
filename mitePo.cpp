@@ -87,7 +87,7 @@ int idc;
 int idb;
 void gestureModeSelect();
 void gestureSongSelect();
-void playNote(int);
+void playNote(Note);
 void playSong(int, int);
 void PlayMode();
 
@@ -315,7 +315,7 @@ void gestureSongSelect()
 	uLCD.text_height(3);
 	uLCD.printf("\nSong\nselection\n");
 	wait(0.2);
-	while (state == 1) {
+	while (state == 5) {
 		// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
 			input_length, should_clear_buffer);
@@ -350,7 +350,7 @@ void gestureSongSelect()
 				uLCD.cls();
 				uLCD.text_width(2);
 				uLCD.text_height(3);
-				uLCD.printf("\nGo to Song.%d?\n", songI);
+				uLCD.printf("\nGo to\nSong %d?\n", songI);
 				return;
 			case 1:	// slope
 				songI = CircuDecre(songI);
@@ -371,31 +371,28 @@ void gestureSongSelect()
 	}
 }
 
-void playNote(int freq)
+void playNote(Note note)
 {
-	for (int i = 0; i < kAudioTxBufferSize; i++)
-	{
+	for (int i = 0; i < kAudioTxBufferSize; i++) {
 		waveform[i] = (int16_t)(sin((double)i * 2. * M_PI
-		/ (double)(kAudioSampleFrequency / freq)) * ((1 << 16) - 1));
+			/ (double)(kAudioSampleFrequency / note.f))
+			* ((1 << 16) - 1));
 	}
-	audio.spk.play(waveform, kAudioTxBufferSize);
+	// the loop below will play the note for the duration of 1s
+	for (int j = 0; j < kAudioSampleFrequency / kAudioTxBufferSize / 2 * note.len; ++j)
+		audio.spk.play(waveform, kAudioTxBufferSize);
 }
-void playSong(int j, int sp)
+void playSong(int j, int sp = 0)
 {
-	int i, length;
-	for (i = sp; state == 0 && i < songlength; i++) {
+	int i;
+	for (i = sp; state == 0 && i < songlength; i++)
+	{
 		noteI = i;
-		length = song[j][i].len;
-		while ((length--) && (state == 0))
-		{
-			// the loop below will play the note for  0.5s
-			if (song[j][i].f != 0) {
-				for (int k = 0; k < kAudioSampleFrequency / kAudioTxBufferSize / 2; k++)
-					queue.call(playNote, song[j][i].f);
-			}
-		}
-		wait(0.5);
+		if (song[j][i].f != 0)
+			queue.call(playNote, song[j][i]);
+		wait(0.5 * song[j][i].len);
 	}
+	if (i == songlength)	noteI = -1;
 }
 void PlayMode()
 {
@@ -410,10 +407,9 @@ void PlayMode()
 			j = songI;
 			playSong(j, noteI + 1);
 			// so that pause won't change songI
-			if (state == 0) {	// afte completely play a song
+			if (state == 0) {
 				j = CircuIncre(j);
 				songI = j;
-				noteI = -1;
 			}
 		}
 	}
@@ -421,7 +417,7 @@ void PlayMode()
 
 void sw2_rise()
 {
-	if (deboun1.read_ms() > 1000) {
+	if (deboun1.read_ms() > 500) {
 		switch (state) {
 		case 0:	// while playing song
 			state = 1;
@@ -450,7 +446,7 @@ void sw2_rise()
 }
 void sw3_rise()
 {
-	if (deboun2.read_ms() > 1000) {
+	if (deboun2.read_ms() > 500) {
 		switch (state) {
 		case 1: // back to playMode
 			queue1.cancel(idc);
@@ -461,17 +457,14 @@ void sw3_rise()
 			uLCD.printf("\nCurrent\nPlaying:\nSong %d\n", songI);
 			break;
 		case 2:
-			queue1.cancel(idc);
 			state = 1;
 			idc = queue1.call(gestureModeSelect);
 			break;
 		case 3:
-			queue1.cancel(idc);
 			state = 1;
 			idc = queue1.call(gestureModeSelect);
 			break;
 		case 4:
-			queue1.cancel(idc);
 			state = 1;
 			idc = queue1.call(gestureModeSelect);
 			break;
