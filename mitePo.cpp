@@ -73,11 +73,12 @@ EventQueue queue2(32 * EVENTS_EVENT_SIZE);
 EventQueue queueM(32 * EVENTS_EVENT_SIZE);
 Note song[numOfSong][songlength];	// 3 songs to choose
 int16_t waveform[kAudioTxBufferSize];
+int16_t stopNote[kAudioTxBufferSize] = { 0 };
 
-Thread t(osPriorityLow);
-Thread t1(osPriorityNormal);
-Thread t2(osPriorityHigh);
-Thread tM(osPriorityLow);
+Thread t;
+Thread t1;
+Thread t2;
+Thread tM;
 int state = 0;
 int songI = 0;	// song index
 int noteI = -1;  // note index
@@ -87,7 +88,7 @@ int idc;
 int idb;
 void gestureModeSelect();
 void gestureSongSelect();
-void playNote(Note);
+void playNote(int);
 void playSong(int, int);
 void PlayMode();
 
@@ -254,8 +255,8 @@ void gestureModeSelect()
 				state = 4;
 				uLCD.cls();
 				uLCD.text_width(2);
-				uLCD.text_height(3);
-				uLCD.printf("\nGo to\nsong selection?\n");
+				uLCD.text_height(2);
+				uLCD.printf("\nGo to\nsong\nselection?\n");
 				return;
 			case 1:	// slope
 				state = 2;
@@ -358,6 +359,7 @@ void gestureSongSelect()
 				uLCD.text_width(2);
 				uLCD.text_height(2);
 				uLCD.printf("\n<- <-\nNow at:\nSong.%d\n", songI);
+				ThisThread::sleep_for(360);
 				continue;
 			case 2:	// sprint
 				songI = CircuIncre(songI);
@@ -365,38 +367,52 @@ void gestureSongSelect()
 				uLCD.text_width(2);
 				uLCD.text_height(2);
 				uLCD.printf("\n-> ->\nNow at:\nSong.%d\n", songI);
+				ThisThread::sleep_for(360);
 				continue;
 			}
 		}
 	}
 }
 
-void playNote(Note note)
+void playNote(int freq)
 {
-	for (int i = 0; i < kAudioTxBufferSize; i++) {
-		waveform[i] = (int16_t)(sin((double)i * 2. * M_PI
-			/ (double)(kAudioSampleFrequency / note.f))
-			* ((1 << 16) - 1));
-	}
-	// the loop below will play the note for the duration of 1s
-	for (int j = 0; j < kAudioSampleFrequency / kAudioTxBufferSize / 2 * note.len; ++j)
+	if (freq != 0) {
+		for (int i = 0; i < kAudioTxBufferSize; i++)
+		{
+			waveform[i] = (int16_t)(sin((double)i * 2. * M_PI
+				/ (double)(kAudioSampleFrequency / freq)) * ((1 << 16) - 1));
+		}
 		audio.spk.play(waveform, kAudioTxBufferSize);
+	}
+	else
+	{
+		audio.spk.play(stopNote, kAudioTxBufferSize);
+	}
+
 }
 void playSong(int j, int sp = 0)
 {
 	int i;
-	for (i = sp; state == 0 && i < songlength; i++)
-	{
+	for (i = sp; state == 0 && i < songlength; i++) {
 		noteI = i;
-		if (song[j][i].f != 0)
-			queue.call(playNote, song[j][i]);
-		wait(0.5 * song[j][i].len);
+		/*	int length = song[j][i].len;
+			while (length--)
+			{
+			// the loop below will play the note for the duration of 1s
+				for (int k = 0; k < kAudioSampleFrequency / kAudioTxBufferSize / 2; ++k)
+					queue.call(playNote, song[j][i].f);
+				if (length < 1) wait(2.0);
+			}*/
+		queue.call(playNote, song[j][i].f);
+		wait(0.5 * (float)(song[j][i].len));
+		queue.call(playNote, 0);
+		wait_us(0.02);
 	}
 	if (i == songlength)	noteI = -1;
 }
 void PlayMode()
 {
-	for (int j = 0; j < numOfSong;)
+	for (int j = 0; state == 0 && j < numOfSong;)
 	{
 		if (state == 0) {
 			uLCD.cls();
@@ -411,6 +427,9 @@ void PlayMode()
 				j = CircuIncre(j);
 				songI = j;
 			}
+			else {
+				audio.spk.play(stopNote, kAudioTxBufferSize);
+			}
 		}
 	}
 }
@@ -421,17 +440,22 @@ void sw2_rise()
 		switch (state) {
 		case 0:	// while playing song
 			state = 1;
+			wait(0.1);
 			idc = queue1.call(gestureModeSelect);
 			break;
 		case 2: //confim last
 			songI = CircuDecre(songI);
 			noteI = -1;
 			state = 0;
+			wait(0.1);
+			queueM.call(PlayMode);
 			break;
 		case 3:	// confim next
 			songI = CircuIncre(songI);
 			noteI = -1;
 			state = 0;
+			wait(0.1);
+			queueM.call(PlayMode);
 			break;
 		case 4: // confim into song select
 			state = 5;
@@ -440,6 +464,8 @@ void sw2_rise()
 		case 6:	// confim song selecte
 			noteI = -1;
 			state = 0;
+			wait(0.1);
+			queueM.call(PlayMode);
 		}
 		deboun1.reset();
 	}
@@ -451,10 +477,8 @@ void sw3_rise()
 		case 1: // back to playMode
 			queue1.cancel(idc);
 			state = 0;
-			uLCD.cls();
-			uLCD.text_width(2);
-			uLCD.text_height(3);
-			uLCD.printf("\nCurrent\nPlaying:\nSong %d\n", songI);
+			wait(0.1);
+			queueM.call(PlayMode);
 			break;
 		case 2:
 			state = 1;
