@@ -98,11 +98,13 @@ bool got_data = false;
 int gesture_index;
 
 int main(int argc, char* argv[]) {
+	char list[numOfSong][songlength * 2 + 10];
+	deboun1.start();
+	deboun2.start();
 	uLCD.text_width(2);
 	uLCD.text_height(4);
 	uLCD.printf("\nAwaiting\nPC input\n");
 	// load 3 songs	
-	char list[numOfSong][songlength * 2 + 10];
 	for (int j = 0; j < numOfSong;)
 		if (pc.readable()) {
 			pc.scanf("%s", list[j++]);
