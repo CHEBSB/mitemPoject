@@ -469,7 +469,6 @@ void sw3_rise()
 			idc = queue1.call(gestureModeSelect);
 			break;
 		case 6:	// confim song selecte
-			queue1.cancel(idb);
 			state = 5;
 			idb = queue1.call(gestureSongSelect);
 		}
