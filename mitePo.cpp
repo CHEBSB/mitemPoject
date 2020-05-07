@@ -14,41 +14,36 @@
 #include "tensorflow/lite/version.h"
 #define songlength 20
 #define numOfSong 3
+#define PCSongNum 5
 #define CircuIncre(a) ((a + 1 >= numOfSong)? 0: a+1)
 #define CircuDecre(a) ((a - 1 < 0)? 2: a-1)
 
-int PredictGesture(float* output) {
+int PredictGesture(float* output) 
+{
 	// How many times the most recent gesture has been matched in a row
 	static int continuous_count = 0;
 	// The result of the last prediction
 	static int last_predict = -1;
-
 	// Find whichever output has a probability > 0.8 (they sum to 1)
 	int this_predict = -1;
-	for (int i = 0; i < label_num; i++) {
-		if (output[i] > 0.8) this_predict = i;
-	}
 
+	for (int i = 0; i < label_num; i++) 
+		if (output[i] > 0.8) this_predict = i;
 	// No gesture was detected above the threshold
 	if (this_predict == -1) {
 		continuous_count = 0;
 		last_predict = label_num;
 		return label_num;
 	}
-
-	if (last_predict == this_predict) {
+	if (last_predict == this_predict) 
 		continuous_count += 1;
-	}
-	else {
+	else 
 		continuous_count = 0;
-	}
 	last_predict = this_predict;
-
 	// If we haven't yet had enough consecutive matches for this gesture,
 	// report a negative result
-	if (continuous_count < config.consecutiveInferenceThresholds[this_predict]) {
+	if (continuous_count < config.consecutiveInferenceThresholds[this_predict]) 
 		return label_num;
-	}
 	// Otherwise, we've seen a positive result, so clear all our variables
 	// and report it
 	continuous_count = 0;
@@ -98,7 +93,103 @@ bool should_clear_buffer = false;
 bool got_data = false;
 int gesture_index;
 
-int main(int argc, char* argv[]) {
+void inline songDecode(int j, char* st)
+{
+	for (int i = 0, k = 0; k < 2 * songlength; k++) {
+		switch (st[k])
+		{
+		case 'w':
+			song[j][i++].len = 1;
+			break;
+		case 'x':
+			song[j][i++].len = 2;
+			break;
+		case 'y':
+			song[j][i++].len = 3;
+			break;
+		case 'z':
+			song[j][i++].len = 4;
+			break;
+		case 'c':
+			song[j][i].f = 261;
+			break;
+		case 'd':
+			song[j][i].f = 294;
+			break;
+		case 'e':
+			song[j][i].f = 330;
+			break;
+		case 'f':
+			song[j][i].f = 349;
+			break;
+		case 'g':
+			song[j][i].f = 392;
+			break;
+		case 'a':
+			song[j][i].f = 440;
+			break;
+		case 'j':
+			song[j][i].f = 277;
+			break;
+		case 'k':
+			song[j][i].f = 311;
+			break;
+		case 'l':
+			song[j][i].f = 370;
+			break;
+		case 'm':
+			song[j][i].f = 415;
+			break;
+		case 'n':
+			song[j][i].f = 466;
+			break;
+		case 'b':
+			song[j][i].f = 494;
+			break;
+		case 'C':
+			song[j][i].f = 523;
+			break;
+		case 'D':
+			song[j][i].f = 587;
+			break;
+		case 'E':
+			song[j][i].f = 659;
+			break;
+		case 'F':
+			song[j][i].f = 698;
+			break;
+		case 'G':
+			song[j][i].f = 784;
+			break;
+		case 'A':
+			song[j][i].f = 880;
+			break;
+		case 'B':
+			song[j][i].f = 988;
+			break;
+		case 'J':
+			song[j][i].f = 554;
+			break;
+		case 'K':
+			song[j][i].f = 622;
+			break;
+		case 'L':
+			song[j][i].f = 740;
+			break;
+		case 'M':
+			song[j][i].f = 831;
+			break;
+		case 'N':
+			song[j][i].f = 932;
+			break;
+		case 's':
+			song[j][i].f = 0;
+		}
+	}
+}
+
+int main(int argc, char* argv[]) 
+{
 	char list[numOfSong][songlength * 2 + 10];
 	deboun1.start();
 	deboun2.start();

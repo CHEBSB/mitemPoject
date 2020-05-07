@@ -5,12 +5,12 @@ import time
 waitTime = 1.0
 
 # generate the song List
-song1 = "cxcxgxgxaxaxgyswfxfxexexdxdxcyswswswswsw\n"
-song2 = "gxexeyswfxdxdyswcxdxexfxgxgxgyswswswswsw\n"
-song3 = "ewfwgwcxcwcwdwewfxawCwawfwexgwfwdwgwcxsw\n"
-song4 = "LwKwLwLwBwLwKxJwEwLwLwEwDwEyEwswswswswsw\n"
-song5 = "awbwCybwCxExbzsxexaygwaxCxgzsxexfxCwbysw\n"
-Songlist = [song1, song2, song3, song4, song5]
+song0 = "cxcxgxgxaxaxgyswfxfxexexdxdxcyswswswswsw\n"
+song1 = "gxexeyswfxdxdyswcxdxexfxgxgxgyswswswswsw\n"
+song2 = "ewfwgwcxcwcwdwewfxawCwawfwexgwfwdwgwcxsw\n"
+song3 = "LwKwLwLwBwLwKxJwEwLwLwEwDwEyEwswswswswsw\n"
+song4 = "awbwCybwCxExbzsxexaygwaxCxgzsxexfxCwbysw\n"
+Songlist = [song0, song1, song2, song3, song4]
 
 serdev = '/dev/ttyACM0'
 s = serial.Serial(serdev)
