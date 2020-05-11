@@ -13,9 +13,9 @@
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/version.h"
 #define songlength 20
-#define numOfSong 3
+#define SongNum 3
 #define PCSongNum 5
-#define CircuIncre(a) ((a + 1 >= numOfSong)? 0: a+1)
+#define CircuIncre(a, N) ((a + 1 >= N)? 0: a+1)
 #define CircuDecre(a) ((a - 1 < 0)? 2: a-1)
 
 int PredictGesture(float* output) 
@@ -76,7 +76,8 @@ Thread t2;
 Thread tM;
 int state = 0;
 int songI = 0;	// song index
-int noteI = -1;  // note index
+int noteI = -1; // note index
+int songIn = 3;	// song to call from pc
 void sw2_rise();
 void sw3_rise();
 int idc;
@@ -190,19 +191,21 @@ void inline songDecode(int j, char* st)
 
 int main(int argc, char* argv[]) 
 {
-	char list[numOfSong][songlength * 2 + 10];
+	char list[SongNum][songlength * 2 + 10];
 	deboun1.start();
 	deboun2.start();
+	pc.printf("9\r\n");
 	uLCD.text_width(2);
 	uLCD.text_height(4);
 	uLCD.printf("\nAwaiting\nPC input\n");
+	wait(5.0);
 	// load 3 songs	
-	for (int j = 0; j < numOfSong;)
+	for (int j = 0; j < SongNum;)
 		if (pc.readable()) {
 			pc.scanf("%s", list[j++]);
 			wait(0.8);
 		}
-	for (int j = 0; j < numOfSong; j++)
+	for (int j = 0; j < SongNum; j++)
 		for (int i = 0, k = 0; k < 2 * songlength; k++) {
 			switch (list[j][k])
 			{
@@ -483,7 +486,105 @@ void gestureSongSelect()
 				ThisThread::sleep_for(360);
 				continue;
 			case 2:	// sprint
-				songI = CircuIncre(songI);
+				songI = CircuIncre(songI, SongNum);
+				uLCD.cls();
+				uLCD.text_width(2);
+				uLCD.text_height(2);
+				uLCD.printf("\n-> ->\nNow at:\nSong.%d\n", songI);
+				ThisThread::sleep_for(360);
+				continue;
+			}
+		}
+	}
+}
+
+void gestureSongSwitch()	// call new song from pc
+{
+	static tflite::MicroErrorReporter micro_error_reporter;
+	tflite::ErrorReporter* error_reporter = &micro_error_reporter;
+	const tflite::Model* model = tflite::GetModel(g_magic_wand_model_data);
+
+	static tflite::MicroOpResolver<6> micro_op_resolver;
+	micro_op_resolver.AddBuiltin(
+		tflite::BuiltinOperator_DEPTHWISE_CONV_2D,
+		tflite::ops::micro::Register_DEPTHWISE_CONV_2D());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_MAX_POOL_2D,
+		tflite::ops::micro::Register_MAX_POOL_2D());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_CONV_2D,
+		tflite::ops::micro::Register_CONV_2D());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_FULLY_CONNECTED,
+		tflite::ops::micro::Register_FULLY_CONNECTED());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_SOFTMAX,
+		tflite::ops::micro::Register_SOFTMAX());
+	micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_RESHAPE,
+		tflite::ops::micro::Register_RESHAPE(), 1);
+
+
+	static tflite::MicroInterpreter static_interpreter(
+		model, micro_op_resolver, tensor_arena, kTensorArenaSize, error_reporter);
+	tflite::MicroInterpreter* interpreter = &static_interpreter;
+	interpreter->AllocateTensors();
+	TfLiteTensor* model_input = interpreter->input(0);
+
+	int input_length = model_input->bytes / sizeof(float);
+	TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
+	if (setup_status != kTfLiteOk) {
+		error_reporter->Report("Set up failed\n");
+		return;
+	}
+	error_reporter->Report("Set up successful...\n");
+	uLCD.cls();
+	uLCD.text_width(2);
+	uLCD.text_height(3);
+	uLCD.printf("\nSong\nselection\n");
+	wait(0.2);
+	while (state == 5) {
+		// Attempt to read new data from the accelerometer
+		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
+			input_length, should_clear_buffer);
+		// If there was no new data,
+		// don't try to clear the buffer again and wait until next time
+		if (!got_data) {
+			should_clear_buffer = false;
+			continue;
+		}
+		uLCD.cls();
+		uLCD.text_width(2);
+		uLCD.text_height(3);
+		uLCD.printf("\n...\n");
+		// Run inference, and report any error
+		TfLiteStatus invoke_status = interpreter->Invoke();
+		if (invoke_status != kTfLiteOk) {
+			error_reporter->Report("Invoke failed on index: %d\n", begin_index);
+			continue;
+		}
+		// Analyze the results to obtain a prediction
+		gesture_index = PredictGesture(interpreter->output(0)->data.f);
+		// Clear the buffer next time we read data
+		should_clear_buffer = gesture_index < label_num;
+
+		// Produce an output
+		if (gesture_index < label_num && state == 5) {
+			error_reporter->Report(config.output_message[gesture_index]);
+			switch (gesture_index)
+			{
+			case 0:	// ring
+				state = 6;
+				uLCD.cls();
+				uLCD.text_width(2);
+				uLCD.text_height(3);
+				uLCD.printf("\nGo to\nSong %d?\n", songI);
+				return;
+			case 1:	// slope
+				songIn = CircuDecre(songIn);
+				uLCD.cls();
+				uLCD.text_width(2);
+				uLCD.text_height(2);
+				uLCD.printf("\n<- <-\nNow at:\nSong.%d\n", songI);
+				ThisThread::sleep_for(360);
+				continue;
+			case 2:	// sprint
+				songIn = CircuIncre(songIn, PCSongNum);
 				uLCD.cls();
 				uLCD.text_width(2);
 				uLCD.text_height(2);
@@ -521,7 +622,7 @@ void playSong(int j, int sp = 0)
 }
 void PlayMode()
 {
-	for (int j = 0; state == 0 && j < numOfSong;)
+	for (int j = 0; state == 0 && j < SongNum;)
 	{
 		if (state == 0) {
 			uLCD.cls();
@@ -533,7 +634,7 @@ void PlayMode()
 			playSong(j, noteI + 1);
 			// so that pause won't change songI
 			if (state == 0) {
-				j = CircuIncre(j);
+				j = CircuIncre(j, SongNum);
 				songI = j;
 			}
 			else
@@ -559,7 +660,7 @@ void sw2_rise()
 			queueM.call(PlayMode);
 			break;
 		case 3:	// confim next
-			songI = CircuIncre(songI);
+			songI = CircuIncre(songI, SongNum);
 			noteI = -1;
 			state = 0;
 			wait(0.1);

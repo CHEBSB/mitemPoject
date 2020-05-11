@@ -15,7 +15,7 @@ Songlist = [song0, song1, song2, song3, song4]
 serdev = '/dev/ttyACM0'
 s = serial.Serial(serdev)
  
-line = s.readline() # Read an echo string from K66F terminated with '\n'
+line = s.readline() # Read an string from K66F terminated with '\n'
 index = int(line[0])
 
 if index == 9:
