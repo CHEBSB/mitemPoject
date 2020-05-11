@@ -94,8 +94,13 @@ bool should_clear_buffer = false;
 bool got_data = false;
 int gesture_index;
 
-void inline songDecode(int j, char* st)
+void songDecode(int j)
 {
+	char list[songlength * 2 + 10];
+	if (pc.readable()) {
+		pc.scanf("%s", st);
+		wait(0.8);
+	}
 	for (int i = 0, k = 0; k < 2 * songlength; k++) {
 		switch (st[k])
 		{
@@ -536,7 +541,7 @@ void gestureSongSwitch()	// call new song from pc
 	uLCD.cls();
 	uLCD.text_width(2);
 	uLCD.text_height(3);
-	uLCD.printf("\nSong\nselection\n");
+	uLCD.printf("\nPC\nSong\nSelect\n");
 	wait(0.2);
 	while (state == 5) {
 		// Attempt to read new data from the accelerometer
@@ -564,23 +569,23 @@ void gestureSongSwitch()	// call new song from pc
 		should_clear_buffer = gesture_index < label_num;
 
 		// Produce an output
-		if (gesture_index < label_num && state == 5) {
+		if (gesture_index < label_num && state == 7) {
 			error_reporter->Report(config.output_message[gesture_index]);
 			switch (gesture_index)
 			{
 			case 0:	// ring
-				state = 6;
+				state = 8;
 				uLCD.cls();
 				uLCD.text_width(2);
 				uLCD.text_height(3);
-				uLCD.printf("\nGo to\nSong %d?\n", songI);
+				uLCD.printf("\nImport\nSong %d?\n", songIn);
 				return;
 			case 1:	// slope
 				songIn = CircuDecre(songIn);
 				uLCD.cls();
 				uLCD.text_width(2);
 				uLCD.text_height(2);
-				uLCD.printf("\n<- <-\nNow at:\nSong.%d\n", songI);
+				uLCD.printf("\n<- <-\nNow at:\nSong.%d\n", songIn);
 				ThisThread::sleep_for(360);
 				continue;
 			case 2:	// sprint
@@ -588,7 +593,7 @@ void gestureSongSwitch()	// call new song from pc
 				uLCD.cls();
 				uLCD.text_width(2);
 				uLCD.text_height(2);
-				uLCD.printf("\n-> ->\nNow at:\nSong.%d\n", songI);
+				uLCD.printf("\n-> ->\nNow at:\nSong.%d\n", songIn);
 				ThisThread::sleep_for(360);
 				continue;
 			}
@@ -675,6 +680,9 @@ void sw2_rise()
 			state = 0;
 			wait(0.1);
 			queueM.call(PlayMode);
+			break;
+		case 8:
+			noteI = -1;
 		}
 		deboun1.reset();
 	}
@@ -683,6 +691,11 @@ void sw3_rise()
 {
 	if (deboun2.read_ms() > 500) {
 		switch (state) {
+		case 0:
+			state = 7;
+			wait(0.1);
+			idb = queue1.call(gestureSongSwich);
+			break;
 		case 1: // back to playMode
 			queue1.cancel(idc);
 			state = 0;
@@ -704,6 +717,16 @@ void sw3_rise()
 		case 6:	// confim song selecte
 			state = 5;
 			idb = queue1.call(gestureSongSelect);
+			break;
+		case 7:	// back to playMode
+			queue1.cancel(idb);
+			state = 0;
+			wait(0.1);
+			queueM.call(PlayMode);
+			break;
+		case 8:
+			state = 7;
+			idb = queue1.call(gestureSongSwitch);
 		}
 		deboun2.reset();
 	}
