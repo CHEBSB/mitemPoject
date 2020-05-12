@@ -96,7 +96,12 @@ int gesture_index;
 
 void songDecode(int j)
 {
-	char list[songlength * 2 + 10];
+	char st[songlength * 2 + 10];
+	pc.printf("%d\r\n", songIn);
+	uLCD.text_width(2);
+	uLCD.text_height(4);
+	uLCD.printf("\nAwaiting\nPC input\n");
+	wait(5.0);
 	if (pc.readable()) {
 		pc.scanf("%s", st);
 		wait(0.8);
@@ -192,6 +197,7 @@ void songDecode(int j)
 			song[j][i].f = 0;
 		}
 	}
+	return;
 }
 
 int main(int argc, char* argv[]) 
@@ -502,7 +508,6 @@ void gestureSongSelect()
 		}
 	}
 }
-
 void gestureSongSwitch()	// call new song from pc
 {
 	static tflite::MicroErrorReporter micro_error_reporter;
@@ -683,6 +688,8 @@ void sw2_rise()
 			break;
 		case 8:
 			noteI = -1;
+			queueM.call(songDecode, songI);
+			queueM.call(PlayMode);
 		}
 		deboun1.reset();
 	}
