@@ -18,7 +18,7 @@
 #define CircuIncre(a, N) ((a + 1 >= N)? 0: a+1)
 #define CircuDecre(a) ((a - 1 < 0)? 2: a-1)
 
-int PredictGesture(float* output) 
+int PredictGesture(float* output)
 {
 	// How many times the most recent gesture has been matched in a row
 	static int continuous_count = 0;
@@ -27,7 +27,7 @@ int PredictGesture(float* output)
 	// Find whichever output has a probability > 0.8 (they sum to 1)
 	int this_predict = -1;
 
-	for (int i = 0; i < label_num; i++) 
+	for (int i = 0; i < label_num; i++)
 		if (output[i] > 0.8) this_predict = i;
 	// No gesture was detected above the threshold
 	if (this_predict == -1) {
@@ -35,14 +35,14 @@ int PredictGesture(float* output)
 		last_predict = label_num;
 		return label_num;
 	}
-	if (last_predict == this_predict) 
+	if (last_predict == this_predict)
 		continuous_count += 1;
-	else 
+	else
 		continuous_count = 0;
 	last_predict = this_predict;
 	// If we haven't yet had enough consecutive matches for this gesture,
 	// report a negative result
-	if (continuous_count < config.consecutiveInferenceThresholds[this_predict]) 
+	if (continuous_count < config.consecutiveInferenceThresholds[this_predict])
 		return label_num;
 	// Otherwise, we've seen a positive result, so clear all our variables
 	// and report it
@@ -95,10 +95,12 @@ bool should_clear_buffer = false;
 bool got_data = false;
 int gesture_index;
 
-void songDecode(int j)
+void songDecode()
 {
+	int &j = songI;
 	char st[songlength * 2 + 10];
 	pc.printf("%d\r\n", songIn);
+	uLCD.cls();
 	uLCD.text_width(2);
 	uLCD.text_height(4);
 	uLCD.printf("\nAwaiting\nPC Input\n");
@@ -201,15 +203,15 @@ void songDecode(int j)
 	return;
 }
 
-int main(int argc, char* argv[]) 
+int main(int argc, char* argv[])
 {
 	char list[SongNum][songlength * 2 + 10];
 	deboun1.start();
 	deboun2.start();
-	pc.printf("9\r\n");
 	uLCD.text_width(2);
 	uLCD.text_height(4);
 	uLCD.printf("\nAwaiting\nPC input\n");
+	pc.printf("9\r\n");
 	while (pc.readable() == false);
 	// load 3 songs	
 	for (int j = 0; j < SongNum;)
@@ -349,10 +351,12 @@ void gestureModeSelect()
 	int input_length = model_input->bytes / sizeof(float);
 	TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
 	if (setup_status != kTfLiteOk) {
-		error_reporter->Report("Set up failed\n");
+		uLCD.cls();
+		uLCD.text_width(2);
+		uLCD.text_height(3);
+		uLCD.printf("\nexceptio\ntake place\n");
 		return;
 	}
-	error_reporter->Report("Set up successful...\n");
 	uLCD.cls();
 	uLCD.text_width(2);
 	uLCD.text_height(3);
@@ -375,7 +379,10 @@ void gestureModeSelect()
 		// Run inference, and report any error
 		TfLiteStatus invoke_status = interpreter->Invoke();
 		if (invoke_status != kTfLiteOk) {
-			error_reporter->Report("Invoke failed on index: %d\n", begin_index);
+			uLCD.cls();
+			uLCD.text_width(2);
+			uLCD.text_height(3);
+			uLCD.printf("\nInvoke\nfailed on\nindex: %d\n", begin_index);
 			continue;
 		}
 		// Analyze the results to obtain a prediction
@@ -443,10 +450,12 @@ void gestureSongSelect()
 	int input_length = model_input->bytes / sizeof(float);
 	TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
 	if (setup_status != kTfLiteOk) {
-		error_reporter->Report("Set up failed\n");
+		uLCD.cls();
+		uLCD.text_width(2);
+		uLCD.text_height(3);
+		uLCD.printf("\nexceptio\ntake place\n");
 		return;
 	}
-	error_reporter->Report("Set up successful...\n");
 	uLCD.cls();
 	uLCD.text_width(2);
 	uLCD.text_height(3);
@@ -469,7 +478,10 @@ void gestureSongSelect()
 		// Run inference, and report any error
 		TfLiteStatus invoke_status = interpreter->Invoke();
 		if (invoke_status != kTfLiteOk) {
-			error_reporter->Report("Invoke failed on index: %d\n", begin_index);
+			uLCD.cls();
+			uLCD.text_width(2);
+			uLCD.text_height(3);
+			uLCD.printf("\nInvoke\nfailed on\nindex: %d\n", begin_index);
 			continue;
 		}
 		// Analyze the results to obtain a prediction
@@ -479,7 +491,6 @@ void gestureSongSelect()
 
 		// Produce an output
 		if (gesture_index < label_num && state == 5) {
-			error_reporter->Report(config.output_message[gesture_index]);
 			switch (gesture_index)
 			{
 			case 0:	// ring
@@ -490,11 +501,11 @@ void gestureSongSelect()
 				uLCD.printf("\nGo to\nSong %d?\n", songI);
 				return;
 			case 1:	// slope
-				songI = CircuDecre(songI);
+				songI = CircuIncre(songI, SongNum);
 				uLCD.cls();
 				uLCD.text_width(2);
 				uLCD.text_height(2);
-				uLCD.printf("\n<- <-\nNow at:\nSong.%d\n", songI);
+				uLCD.printf("\n-> ->\nNow at:\nSong.%d\n", songI);
 				ThisThread::sleep_for(360);
 				continue;
 			case 2:	// sprint
@@ -540,10 +551,12 @@ void gestureSongSwitch()	// call new song from pc
 	int input_length = model_input->bytes / sizeof(float);
 	TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
 	if (setup_status != kTfLiteOk) {
-		error_reporter->Report("Set up failed\n");
+		uLCD.cls();
+		uLCD.text_width(2);
+		uLCD.text_height(3);
+		uLCD.printf("\nexceptio\ntake place\n");
 		return;
 	}
-	error_reporter->Report("Set up successful...\n");
 	uLCD.cls();
 	uLCD.text_width(2);
 	uLCD.text_height(3);
@@ -566,7 +579,10 @@ void gestureSongSwitch()	// call new song from pc
 		// Run inference, and report any error
 		TfLiteStatus invoke_status = interpreter->Invoke();
 		if (invoke_status != kTfLiteOk) {
-			error_reporter->Report("Invoke failed on index: %d\n", begin_index);
+			uLCD.cls();
+			uLCD.text_width(2);
+			uLCD.text_height(3);
+			uLCD.printf("\nInvoke\nfailed on\nindex: %d\n", begin_index);
 			continue;
 		}
 		// Analyze the results to obtain a prediction
@@ -576,7 +592,6 @@ void gestureSongSwitch()	// call new song from pc
 
 		// Produce an output
 		if (gesture_index < label_num && state == 7) {
-			error_reporter->Report(config.output_message[gesture_index]);
 			switch (gesture_index)
 			{
 			case 0:	// ring
@@ -587,11 +602,11 @@ void gestureSongSwitch()	// call new song from pc
 				uLCD.printf("\nImport\nSong %d?\n", songIn);
 				return;
 			case 1:	// slope
-				songIn = CircuDecre(songIn);
+				songIn = CircuIncre(songIn, PCSongNum);
 				uLCD.cls();
 				uLCD.text_width(2);
 				uLCD.text_height(2);
-				uLCD.printf("\n<- <-\nNow at:\nSong.%d\n", songIn);
+				uLCD.printf("\n-> ->\nNow at:\nSong.%d\n", songIn);
 				ThisThread::sleep_for(360);
 				continue;
 			case 2:	// sprint
@@ -688,8 +703,9 @@ void sw2_rise()
 			queueM.call(PlayMode);
 			break;
 		case 8:
+			state = 0;
 			noteI = -1;
-			queueM.call(songDecode, songI);
+			songDecode();
 			queueM.call(PlayMode);
 		}
 		deboun1.reset();

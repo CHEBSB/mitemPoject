@@ -5,19 +5,24 @@ import time
 song0 = "cxcxgxgxaxaxgyswfxfxexexdxdxcyswswswswsw\n"
 song1 = "gxexeyswfxdxdyswcxdxexfxgxgxgyswswswswsw\n"
 song2 = "ewfwgwcxcwcwdwewfxawCwawfwexgwfwdwgwcxsw\n"
-song3 = "LwKwLwLwBwLwKxJwEwLwLwEwDwEyEwswswswswsw\n"
+song3 = "axaxbyswaxaxbyswaxbxCxDwEwDxaxDyswaxexsw\n"
 song4 = "awbwCybwCxExbzsxexaygwaxCxgzsxexfxCwbysw\n"
 Songlist = [song0, song1, song2, song3, song4]
 
 serdev = '/dev/ttyACM0'
 s = serial.Serial(serdev)
  
-sin = s.read() # Read 
-print("Here PC receive: ", sin)
-if sin <= 4 and sin >= 0:
-    print("Sending new song: Song ", sin)
+line = s.readline() # Read 
+print("Here PC receive:", line)
+sA = line.split()
+i = len(sA) - 2
+k = int(sA[i])
+print("k:", k)
+time.sleep(1.0)
+if k <= 4 and k >= 0:
+    print("Sending new song: Song ", k)
     print("It may take about 1 second ..." )
-    s.write(Songlist[sin].encode())
+    s.write(Songlist[k].encode())
     time.sleep(1.0)
     s.close()
     print("New Song arrived!")
