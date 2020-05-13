@@ -99,7 +99,7 @@ void songDecode()
 {
 	int &j = songI;
 	char st[songlength * 2 + 10];
-	pc.printf("%d\r\n", songIn);
+	pc.printf("abc  %d  cba\r\n", songIn);
 	uLCD.cls();
 	uLCD.text_width(2);
 	uLCD.text_height(4);
@@ -211,7 +211,7 @@ int main(int argc, char* argv[])
 	uLCD.text_width(2);
 	uLCD.text_height(4);
 	uLCD.printf("\nAwaiting\nPC input\n");
-	pc.printf("9\r\n");
+	pc.printf("abc  9  cba\r\n");
 	while (pc.readable() == false);
 	// load 3 songs	
 	for (int j = 0; j < SongNum;)
