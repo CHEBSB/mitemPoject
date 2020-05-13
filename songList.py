@@ -16,16 +16,28 @@ line = s.readline() # Read
 print("Here PC receive:", line)
 sA = line.split()
 i = len(sA) - 2
-k = int(sA[i])
-print("k:", k)
-time.sleep(1.0)
-if k <= 4 and k >= 0:
-    print("Sending new song: Song ", k)
-    print("It may take about 1 second ..." )
-    s.write(Songlist[k].encode())
+if i >= 0:
+    k = int(sA[i])
+    print("k:", k)
     time.sleep(1.0)
-    s.close()
-    print("New Song arrived!")
+    if k <= 4 and k >= 0:
+        print("Sending new song: Song ", k)
+        print("It may take about 1 second ..." )
+        s.write(Songlist[k].encode())
+        time.sleep(1.0)
+        s.close()
+        print("New Song arrived!")
+    else:
+        print("Sending basic songlist ...")
+        print("It may take about 3 seconds ...")
+        s.write(Songlist[0].encode())
+        time.sleep(1.0)
+        s.write(Songlist[1].encode())
+        time.sleep(1.0)
+        s.write(Songlist[2].encode())
+        time.sleep(1.0)
+        s.close()
+        print("Signal sended")
 else:
     print("Sending basic songlist ...")
     print("It may take about 3 seconds ...")
