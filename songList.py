@@ -7,7 +7,8 @@ song1 = "gxexeyswfxdxdyswcxdxexfxgxgxgyswswswswsw\n"
 song2 = "ewfwgwcxcwcwdwewfxawCwawfwexgwfwdwgwcxsw\n"
 song3 = "axaxbyswaxaxbyswaxbxCxDwEwDxaxDyswaxexsw\n"
 song4 = "awbwCybwCxExbzsxexaygwaxCxgzsxexfxCwbysw\n"
-Songlist = [song0, song1, song2, song3, song4]
+song5 = "LwMwAwAwBwAwMxJwEwLwLwEwDwEyswEwDwDwCwsw\n"
+Songlist = [song0, song1, song2, song3, song4, song5]
 
 serdev = '/dev/ttyACM0'
 s = serial.Serial(serdev)
@@ -20,7 +21,7 @@ if i >= 0:
     k = int(sA[i])
     print("k:", k)
     time.sleep(1.0)
-    if k <= 4 and k >= 0:
+    if k <= 5 and k >= 0:
         print("Sending new song: Song ", k)
         print("It may take about 1 second ..." )
         s.write(Songlist[k].encode())

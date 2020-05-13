@@ -14,7 +14,7 @@
 #include "tensorflow/lite/version.h"
 #define songlength 20
 #define SongNum 3
-#define PCSongNum 5
+#define PCSongNum 6
 #define CircuIncre(a, N) ((a + 1 >= N)? 0: a+1)
 #define CircuDecre(a) ((a - 1 < 0)? 2: a-1)
 
