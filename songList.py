@@ -1,8 +1,5 @@
-import numpy as np
 import serial
 import time
-
-waitTime = 1.0
 
 # generate the song List
 song0 = "cxcxgxgxaxaxgyswfxfxexexdxdxcyswswswswsw\n"
@@ -15,12 +12,18 @@ Songlist = [song0, song1, song2, song3, song4]
 serdev = '/dev/ttyACM0'
 s = serial.Serial(serdev)
  
-line = s.readline() # Read an string from K66F terminated with '\n'
-index = int(line[0])
-
-if index == 9:
+line = s.read() # Read 
+print("Here PC receive: ", line)
+if line[0] <= 4 and line[0] >= 0:
+    print("Sending new song: Song ", line[0])
+    print("It may take about 1 second ..." )
+    s.write(Songlist[line[0]].encode())
+    time.sleep(waitTime)
+    s.close()
+    print("New Song arrived!")
+else:
     print("Sending basic songlist ...")
-    print("It may take about %d seconds ..." % (int(len(Songlist) * waitTime)))
+    print("It may take about 3 seconds ...")
     s.write(Songlist[0].encode())
     time.sleep(waitTime)
     s.write(Songlist[1].encode())
@@ -29,14 +32,3 @@ if index == 9:
     time.sleep(waitTime)
     s.close()
     print("Signal sended")
-elif index <= 4 and index >= 0:
-    print("Sending new song ...")
-    print("It may take about 1 second ..." )
-    s.write(Songlist[index].encode())
-    time.sleep(waitTime)
-    s.close()
-    print("New Song arrived!")
-else:
-    print("Error. Unrecognizable input.")
-    print("Terminate this python program." )
-    s.close()

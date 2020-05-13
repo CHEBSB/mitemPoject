@@ -66,7 +66,7 @@ EventQueue queue(32 * EVENTS_EVENT_SIZE);
 EventQueue queue1(32 * EVENTS_EVENT_SIZE);
 EventQueue queue2(32 * EVENTS_EVENT_SIZE);
 EventQueue queueM(32 * EVENTS_EVENT_SIZE);
-Note song[numOfSong][songlength];	// 3 songs to choose
+Note song[SongNum][songlength];	// 3 songs to choose
 int16_t waveform[kAudioTxBufferSize];
 int16_t stopNote[kAudioTxBufferSize] = { 0 };
 
@@ -84,6 +84,7 @@ int idc;
 int idb;
 void gestureModeSelect();
 void gestureSongSelect();
+void gestureSongSwitch();
 void playNote(int);
 void playSong(int, int);
 void PlayMode();
@@ -100,8 +101,8 @@ void songDecode(int j)
 	pc.printf("%d\r\n", songIn);
 	uLCD.text_width(2);
 	uLCD.text_height(4);
-	uLCD.printf("\nAwaiting\nPC input\n");
-	wait(5.0);
+	uLCD.printf("\nAwaiting\nPC Input\n");
+	while (pc.readable() == false);
 	if (pc.readable()) {
 		pc.scanf("%s", st);
 		wait(0.8);
@@ -209,7 +210,7 @@ int main(int argc, char* argv[])
 	uLCD.text_width(2);
 	uLCD.text_height(4);
 	uLCD.printf("\nAwaiting\nPC input\n");
-	wait(5.0);
+	while (pc.readable() == false);
 	// load 3 songs	
 	for (int j = 0; j < SongNum;)
 		if (pc.readable()) {
@@ -548,7 +549,7 @@ void gestureSongSwitch()	// call new song from pc
 	uLCD.text_height(3);
 	uLCD.printf("\nPC\nSong\nSelect\n");
 	wait(0.2);
-	while (state == 5) {
+	while (state == 7) {
 		// Attempt to read new data from the accelerometer
 		got_data = ReadAccelerometer(error_reporter, model_input->data.f,
 			input_length, should_clear_buffer);
@@ -701,7 +702,7 @@ void sw3_rise()
 		case 0:
 			state = 7;
 			wait(0.1);
-			idb = queue1.call(gestureSongSwich);
+			idb = queue1.call(gestureSongSwitch);
 			break;
 		case 1: // back to playMode
 			queue1.cancel(idc);
